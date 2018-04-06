@@ -19,8 +19,7 @@ $global:raidLeaveCSV = import-csv ($DBSub + "leave.csv") | ?{$_.name -eq "$name"
 [datetime]$firstRaid = $raidJoinCSV | select-object -First 1 | select -ExpandProperty date
 [datetime]$latestRaid = $raidJoinCSV | select-object -last 1 | select -ExpandProperty date
 
-
-tesrtestestestestse
+dadadadada
 
 
 
