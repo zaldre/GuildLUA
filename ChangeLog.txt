@@ -1,0 +1,12 @@
+<#VERSION INFORMATION
+Version 0.1 (13/12/2017)
+Version 0.2 (20/12/2017)
+Version 0.3 (29/12/2017)
+Version 0.4 (24/01/2017) - Added MasterSheet lists.
+Version 1.0 (30/03/2018) - Rewrote DB function, Speed increase of approx 3.5x by using foreach loop to store all data before export to CSV
+Version 1.0.1 (31/03/2018) - Rewrote genlootarray function
+Version 1.0.2 (31/03/2018) - Recreated Character search function. Increased speed 75x by recreating the logic of how the database info is filtered.
+
+Made by Zaldre (Darrowshire) - Zaldre@Yandex.com
+
+#>

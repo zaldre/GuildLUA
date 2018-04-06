@@ -1,0 +1,18 @@
+<settings>
+  <baseconfig>
+    <workingdir>D:\dropbox\guild</workingdir>
+    <databasefolder>db</databasefolder>
+    <wowfolder>C:\WoW</wowfolder>
+    <logfile>LUA_CSV.log</logfile>
+    <timezoneID>Central Europe Standard Time</timezoneID>
+  </baseconfig>
+  <reporting>
+    <convservertime>True</convservertime>
+    <reportfolder>reports</reportfolder>
+    <qualityfilter>0</qualityfilter>
+    <raiddays>Thursday,Sunday</raiddays>
+    <monitoredTimestart>13:30</monitoredTimestart>
+    <monitoredTimeend>14:30</monitoredTimeend>
+    <raidtimeonly>True</raidtimeonly>
+  </reporting>
+</settings>
