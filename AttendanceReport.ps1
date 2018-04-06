@@ -27,7 +27,7 @@ $raidjoin = foreach ($entry in $raidjoincsv) {
 
 
 $weeksbetween = ((New-TimeSpan -Start $firstRaid -End $latestRaid | select -ExpandProperty Days) / 7)
-$expectedRaids = [math]::Round($weeksbetween * $raidsPerWeek)
+$expectedRaids = [math]::Round($weeksbetween * $raidsPerWeek - $blacklist.count)
 $totalRaids = ($raidJoin | Select-Object -Property date -Unique).Count
 
 
