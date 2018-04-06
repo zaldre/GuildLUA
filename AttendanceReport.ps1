@@ -13,10 +13,16 @@ $BlackList = cat $blacklistfile
 $global:raidJoinCSV = import-csv ($DBSub + "join.csv") | ?{$_.name -eq "$name" -and $blacklist -notcontains $_.date } # -and (get-date $_.date).DayOfWeek } | sort-object -Property date
 $global:raidLeaveCSV = import-csv ($DBSub + "leave.csv") | ?{$_.name -eq "$name" -and $blacklist -notcontains $_.date} | sort-object -Property date
 
+$raidjoin = foreach ($entry in $raidjoincsv) {
+    [datetime]$dateformatting = $entry.date.Replace('.', '/')
+    if (($dateformatting.dayofweek -like $raiddays) -and ($Config.settings.reporting.raidtimeonly -eq $true)) {
+    $entry
+    }
+    if ($Config.settings.reporting.raidtimeonly -ne $true) { $entry }
+}
 
-[datetime]$dateformatting = $entry.date.Replace('.', '/')
 
-[datetime]$firstRaid = $raidJoinCSV | select-object -First 1 | select -ExpandProperty date
+[datetime]$firstRaid = $raidJoin | select-object -First 1 | select -ExpandProperty date
 [datetime]$latestRaid = $raidJoinCSV | select-object -last 1 | select -ExpandProperty date
 
 
