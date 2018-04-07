@@ -30,7 +30,7 @@ $weeksbetween = ((New-TimeSpan -Start $firstRaid -End $latestRaid | select -Expa
 $expectedRaids = [math]::Round($weeksbetween * $raidsPerWeek - $blacklist.count)
 $totalRaids = ($raidJoin | Select-Object -Property date -Unique).Count
 
-
+sss
 
 
 
