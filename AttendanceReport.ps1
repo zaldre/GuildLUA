@@ -12,8 +12,8 @@ if (!(test-path $blacklistfile)) { New-Item $blacklistfile -ItemType file }
 $BlackList = cat $blacklistfile
 
 
-$raidJoinCSV = import-csv ($DBSub + "join.csv") | ?{$_.name -eq "$name" -and $blacklist -notcontains $_.date } | sort-object -Property date
-$raidLeaveCSV = import-csv ($DBSub + "leave.csv") | ?{$_.name -eq "$name" -and $blacklist -notcontains $_.date} | sort-object -Property date
+$raidJoinCSV = import-csv ($DBSub + "join.csv") | ?{$_.name -eq "$name" -and $blacklist -notcontains $_.date } | select-object -Property date -Unique  | sort-object -Property date
+$raidLeaveCSV = import-csv ($DBSub + "leave.csv") | ?{$_.name -eq "$name" -and $blacklist -notcontains $_.date} | select-object -Property date -Unique | sort-object -Property date
 
 $global:raidjoin = foreach ($entry in $raidjoincsv) {
     #$entry.date
