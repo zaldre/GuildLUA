@@ -14,6 +14,9 @@ PARAM(
 KNOWN BUGS/NEEDS IMPLEMENTATION
 GUILDLUA.PS1
 
+DB - Add non-freshrun mode, Have exclusion list for raid entries and check if existing .csv contains $obj
+Version number + update checker (Maybe DSC for this?)
+Add support for raids that occur on date changes (i.e go past midnight) easiest way to set duration of max raid window and then [datetime] calculation
 Rewrite raidfunction, Doesn't work with new DB type.
 Build attendance tracker. Calculate raid days based on times, Allow for blacklist/ignorelist. Allow linkage between 1 Main > Many alt
 Check if SHIVTR API supports events signups based on main name
@@ -69,9 +72,9 @@ function RaidFunction($Raidentry) {
    
     #Begin processing of ALL raid reports
     if ($Raidentry -eq '*') {
-        $joinImport = import-csv ($dbsub + 'join.csv') | sort-object -Property $datestamp -Descending
-        $leaveImport = import-csv ($dbsub + 'leave.csv') | sort-object -Property $datestamp -Descending
-        $lootImport = import-csv ($dbsub + 'loot.csv') | sort-object -Property $datestamp -Descending
+        $joinImport = (import-csv ($dbsub + 'join.csv')) | Sort-Object -Property date -Descending
+        $leaveImport = (import-csv ($dbsub + 'leave.csv')) | Sort-Object -Property date -Descending
+        $lootImport = (import-csv ($dbsub + 'loot.csv')) | Sort-Object -Property date -Descending
 
         #3 Arrays for holding stuff
         $joinArray = New-Object System.Collections.ArrayList($null)
@@ -127,7 +130,7 @@ function RaidFunction($Raidentry) {
             [void]$raidstore.Add($obj)
 
         }
-        if (!$raidstore) { Throw "Error: No data found for that raid, Correct Syntax: YYYY-MM-DD"} 
+        if (!$raidstore) { Throw "Error: No data found for that raid, Correct Syntax: YYYY-MM-DD" } 
         else { $raidstore | export-csv $raidreportfilename }
     }
 }

@@ -1,3 +1,12 @@
+#Load the config file
+$ConfigFile = "D:\dropbox\guildlua\config_Lua.xml"
+[xml]$Config = Get-Content $ConfigFile
+$DBSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.baseconfig.databasefolder + '\'
+$RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporting.reportfolder + '\'
+
+
+
+
 $blacklistfile = $DBsub + 'blacklist.txt'
 if (!(test-path $blacklistfile)) { New-Item $blacklistfile -ItemType file }
 $BlackList = cat $blacklistfile
