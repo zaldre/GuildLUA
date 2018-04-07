@@ -15,7 +15,7 @@ $global:raidjoin = foreach ($entry in $raidjoincsv) {
     }
     if ($Config.settings.reporting.raidtimeonly -ne "true") { $entry }
 }
-$raidjoin | export-csv test.csv
+
 [datetime]$firstRaid = $raidJoin | select-object -First 1 | select -ExpandProperty date
 [datetime]$latestRaid = $raidJoin | select-object -last 1 | select -ExpandProperty date
 

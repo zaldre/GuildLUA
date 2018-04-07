@@ -46,7 +46,7 @@ Reporting GUI        : Character search (Accompanying text indicating * option)
 #>
 $ErrorActionPreference = "stop"
 #Load the config file
-$ConfigFile = "D:\dropbox\config_Lua.xml"
+$ConfigFile = "D:\dropbox\guildlua\config_Lua.xml"
 [xml]$Config = Get-Content $ConfigFile
 $freshrun = "yes"
 
