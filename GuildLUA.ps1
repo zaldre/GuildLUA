@@ -1,5 +1,3 @@
-#TEST
-
 PARAM(
     [switch]$db,
     [string]$character,
@@ -14,17 +12,12 @@ PARAM(
 KNOWN BUGS/NEEDS IMPLEMENTATION
 GUILDLUA.PS1
 
-DB - Add non-freshrun mode, Have exclusion list for raid entries and check if existing .csv contains $obj
 Add better detection of Config_Lua.XML and make it so this does not need to be modded every time it is run on a different system
 Version number + update checker (Maybe DSC for this?)
 Add support for raids that occur on date changes (i.e go past midnight) easiest way to set duration of max raid window and then [datetime] calculation
 Rewrite raidfunction, Doesn't work with new DB type.
 Build attendance tracker. Calculate raid days based on times, Allow for blacklist/ignorelist. Allow linkage between 1 Main > Many alt
-Check if SHIVTR API supports events signups based on main name
-Implement raid hours (Same as raid days but for hours)
-Include as part of this detection for periods that span over night (i.e. in my case where the raids sometimes go past midnight) Try and build this into the same report if possible.
 Add help data
-Regex date match for -raid parameter
 
 
 CONFIGGUI.PS1
