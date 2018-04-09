@@ -15,6 +15,7 @@ KNOWN BUGS/NEEDS IMPLEMENTATION
 GUILDLUA.PS1
 
 DB - Add non-freshrun mode, Have exclusion list for raid entries and check if existing .csv contains $obj
+Add better detection of Config_Lua.XML and make it so this does not need to be modded every time it is run on a different system
 Version number + update checker (Maybe DSC for this?)
 Add support for raids that occur on date changes (i.e go past midnight) easiest way to set duration of max raid window and then [datetime] calculation
 Rewrite raidfunction, Doesn't work with new DB type.
@@ -49,9 +50,9 @@ Reporting GUI        : Character search (Accompanying text indicating * option)
 #>
 $ErrorActionPreference = "stop"
 #Load the config file
-$ConfigFile = "D:\dropbox\guildlua\config_Lua.xml"
+$ConfigFile = "H:\GLUA\GuildLUA-master\config_Lua.xml"
 [xml]$Config = Get-Content $ConfigFile
-$freshrun = "yes"
+$freshrun = "no"
 
 #Pre-Requisite checks for existing data. Creates directories if they do not exist
 
@@ -92,7 +93,7 @@ function characterSearch($charname) {
         foreach ($entry in $lootarray) {
             if (($entry.name -ne $lastname) -and ($lastname -ne $null)) {
                 $CharacterReport = $CharacterReportFolder + $lastname + "_loot.csv"
-                $charArray | Select * -ExcludeProperty Mode | export-csv $CharacterReport -NoTypeInformation
+                $charArray | Select-Object * -ExcludeProperty Mode | export-csv $CharacterReport -NoTypeInformation
                 $chararray = New-Object System.Collections.ArrayList($null)
             }
             if ($entry.priority -ge $config.settings.reporting.qualityfilter) { [void]$charArray.Add($entry) }
@@ -104,8 +105,7 @@ function characterSearch($charname) {
     #Single character search
     if (($charname -notlike "*,*") -and ($charname -ne '*')) {
         $CharacterReport = $CharacterReportFolder + $charname + "_loot.csv"
-        $dateNow = get-date 
-        $filteredLootArray = $LootArray | ? {$_.name -eq $Charname}
+        $filteredLootArray = $LootArray | Where-Object {$_.name -eq $Charname}
         $characterStore = foreach ($loot in $filteredLootArray) {
             if ($loot.priority -ge $Config.settings.reporting.qualityfilter) { $loot }
         }
@@ -123,6 +123,204 @@ function Write-Log {
     write-host $string
 }
 
+Function GenDB {
+    #Generating database begins
+    "Beginning generation of database. This may take a few minutes..."
+
+    #Beginning loop through files
+    $store = foreach ($DBFile in $DBFilesList) {
+        $import = Get-Content $Dbfile
+        foreach ($entry in $import) { 
+            $obj = @()
+            $int++ #Counter
+
+            #Determining which block we are processing. Leave, Loot or Join
+            if ($entry -eq '		["Leave"] = {') { $mode = "leave"}
+            if ($entry -eq '		["Join"] = {') { $mode = "join" }
+            if ($entry -eq '		["Loot"] = {') { $mode = "loot" }
+
+
+
+            #Parsing individual results
+            $Raw = $entry.Split('=')
+            $CurrentItem = $Raw[0]
+            $Value = $raw[1]
+            $value = $value -replace '"', ""
+            $value = $value -replace ',', ""
+
+
+            #Player object begin
+            if ($CurrentItem -match [Regex]::Escape($Player)) { 
+                $currentPlayer = $raw[1]
+                $currentplayer = $currentplayer.Replace('"', '') #Trimming quotation marks
+                $currentplayer = $currentplayer.Replace(',', '') #Trimming commas
+                $currentplayer = $currentplayer.Trim()           #Trimming whitespace
+            }
+            #URL processing
+            if ($CurrentItem -match [Regex]::Escape($ID)) { 
+    
+                $URL = $IDLookupPrefix + "$value"
+                $url = $url.Replace(" ", "") 
+                $Url = $url.Split(':')
+                $url = $url[0] + ':' + $url[1]
+                #$url
+            }
+
+            #Quantity processing
+            if ($CurrentItem -match [Regex]::Escape($count)) {  $quantity = $value } #$CurrentItem }
+
+            #Name of items
+            if ($CurrentItem -match [Regex]::Escape($name)) { $itemName = $value } #$CurrentItem }
+
+            #Color processing
+            if ($CurrentItem -match [Regex]::Escape($colorhex)) {
+                $colorvalue = $value.Trim()
+                if ($colorvalue -eq "ff9d9d9d") { $coloringame = "Grey" ; $colorpriority = "0"}
+                if ($colorvalue -eq "ffffffff") { $coloringame = "White" ; $colorpriority = "1"}
+                if ($colorvalue -eq "ff1eff00") { $coloringame = "Green" ; $colorpriority = "2"}
+                if ($colorvalue -eq "ff0070dd") { $coloringame = "Blue" ; $colorpriority = "3"}
+                if ($colorvalue -eq "ffa335ee") { $coloringame = "Epic" ; $colorpriority = "4" }
+                if ($colorvalue -eq "ffff8000") { $coloringame = "Legendary" ; $colorpriority = "5" }
+            }
+
+
+            #Time processing
+            if ($CurrentItem -match [Regex]::Escape($time)) {
+                if (!$mode) { write-log "Error. Mode unknown on line" $int ; break }
+
+                #Gathering date and time information
+                $RawDate = $value -split "\s+"
+                #Converting the raw data into a Powershell DATETIME object.
+                [datetime]$date = $Rawdate[1] + " " + $rawdate[2]
+                #The dates are stored in US format, So let's make sure thats taken into consideration before we start changing things.
+                $USFormat = get-date $Date -format ($US.DateTimeFormat.FullDateTimePattern) 
+                if ($config.settings.reporting.convServerTime -eq $true) {
+                    $ConvertedDate = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId($USFormat, [System.TimeZoneInfo]::Local.Id, $Config.settings.baseconfig.timezoneid)
+                    $datestamp = get-date $ConvertedDate -format "yyyy.MM.dd"
+                    $Timestamp = get-date $ConvertedDate -Format "HH:mm:ss"
+                }
+        
+                else {
+                    $datestamp = get-date $USFormat -format "yyyy.MM.dd"
+                    $Timestamp = get-date $USformat -Format "HH:mm:ss"
+                }
+        
+            }
+            #Conversion finished, Lets now store the date and time in individual variables for ease of access.
+    
+            #Final block - Write the objects out
+            if ($CurrentItem -match [Regex]::Escape($final) -and ($currentitem.length -eq $final.length)) {
+                if ($mode -eq "leave") { 
+                    $obj = [pscustomobject][ordered]@{
+                        Name  = $currentplayer
+                        Leave = $timestamp
+                        Date  = $datestamp
+                        Mode  = $mode
+                    }
+                    #Passing object to the pipeline to store in $store
+                    $obj
+                    #Blanking to ensure that data is fresh each loop
+                    $obj = $null
+                    $currentplayer = $null
+                    $timestamp = $null
+                }
+
+                if ($mode -eq "join") {
+                    $obj = [pscustomobject][ordered]@{
+                        Name = $currentplayer
+                        Join = $timestamp
+                        Date = $datestamp
+                        Mode = $mode
+                    }
+                    #Passing object to the pipeline to store in $store
+                    $obj
+                    #Blanking to ensure that data is fresh each loop
+                    $obj = $null
+                    $currentplayer = $null
+                    $timestamp = $null
+                }
+
+                if ($mode -eq "loot") {
+                    $obj = [pscustomobject][ordered]@{
+                        Name     = $currentplayer
+                        Item     = $itemName.SubString(1)
+                        Color    = $colorvalue
+                        Quantity = $quantity
+                        Quality  = $coloringame
+                        Priority = $colorpriority
+                        URL      = $URL
+                        Date     = $datestamp 
+                        Mode     = $mode
+                    }
+                    #Passing object to the pipeline to store in $store
+                    $obj
+                    #Blanking to ensure that data is fresh each loop
+                    $obj = $null
+                    $currentplayer = $null
+                    $itemName = $null
+                    $colorvalue = $null
+                    $quantity = $null
+                    $coloringame = $null
+                    $colorpriority = $null
+                }
+            }
+        }
+
+    }
+    $joinexportfile = $DBSub + 'join.csv'
+    $leaveexportfile = $DBSub + 'leave.csv'
+    $lootexportfile = $DBSub + 'loot.csv'
+    $joinArr = New-Object System.Collections.ArrayList($null)
+    $leaveArr = New-Object System.Collections.ArrayList($null)
+    $lootArr = New-Object System.Collections.ArrayList($null)
+    foreach ($entry in $store) { 
+        switch ($entry.mode) {
+            join {[void]$joinArr.Add($entry) }
+            leave {[void]$leaveArr.Add($entry)}
+            loot {[void]$lootArr.Add($entry)}
+        }
+    }
+    if ($freshrun -eq "yes") {
+    $lootarr | export-csv $lootexportfile -NoTypeInformation
+    $joinarr | export-csv $joinexportfile -NoTypeInformation
+    $leavearr | export-csv $leaveexportfile -NoTypeInformation
+    #Making sure we refresh the loot array after a database refresh
+    }
+    else {
+        $oldLootarr = import-csv $lootexportfile
+        $oldjoinarr = import-csv $joinexportfile
+        $oldleavearr = import-csv $leaveexportfile
+
+        $diffLoot = compare-object -ReferenceObject $oldLootArr -DifferenceObject $lootarr 
+        $diffjoin = compare-object -ReferenceObject $oldjoinArr -DifferenceObject $joinarr 
+        $diffLeave = compare-object -ReferenceObject $oldleaveArr -DifferenceObject $leavearr 
+
+        if ($diffLoot.InputObject) { 
+            $count = $diffloot.inputobject.count
+            "Found $count entries to be added to the loot database."
+            $diffloot.inputobject | ForEach-Object { [void]$lootarr.Add($_) ; $lootarr | export-csv $lootexportfile -NoTypeInformation }
+        } 
+        else { "No differences found in loot entries. Skipping this"}
+
+
+        if ($diffLeave.InputObject) { 
+            $count = $diffleave.inputobject.count
+            "Found $count entries to be added to the leave database."
+            $diffleave.inputobject | ForEach-Object { [void]$leavearr.Add($_) ; $leavearr | export-csv $leaveexportfile -NoTypeInformation }
+        } 
+        else { "No differences found in leave entries. Skipping this"}
+
+        if ($diffjoin.InputObject) { 
+            $count = $diffjoin.inputobject.count
+            "Found $count entries to be added to the join database."
+            $diffjoin.inputobject | ForEach-Object { [void]$joinarr.Add($_) ; $joinarr | export-csv $joinexportfile -NoTypeInformation }
+        } 
+        else { "No differences found in join entries. Skipping this"}
+    }
+    if ($lootarray) { genlootarray }
+    write-host "Database generation complete."
+}
+
 #END FUNCTION DECLARATION
 
 
@@ -135,12 +333,6 @@ $RaidReportFolder = $RPSub + 'Raids\'
 if ((test-path $Config.settings.baseconfig.workingdir) -eq $false) { mkdir $Config.settings.baseconfig.workingdir }
 if ((test-path $DBSub) -eq $false) { mkdir $DBSub }
 if ((test-path $RPSub) -eq $false) { mkdir $RPSub }
-
-#Master sheet files
-$MasterSheetDir = $Config.settings.baseconfig.workingdir + '\' + $config.settings.reporting.reportfolder + '\' + "MasterSheet\"
-$LootMasterSheet = $mastersheetDir + "LootMasterSheet.CSV"
-$RaidMasterSheet = $mastersheetDir + "RaidMasterSheet.csv"
-#if (!(test-path $MasterSheetDir)) { mkdir $mastersheetdir }
 $IDLookupPrefix = 'https://classicdb.ch/?item=' #Used in loot output, PREFIX + ITEMID = URL
 
 #END CONFIGURABLE SECTION
@@ -171,26 +363,18 @@ if ($DB) {
     if (!$Filename) { 
         "No filename specified. Searching WoW directory for suitable files"
         $WTFAccount = "\WTF\ACCOUNT\"
-        try { $DBFilesList = ls ($config.settings.baseconfig.wowfolder + $WTFAccount + '\*\SavedVariables\CT_Raidtracker.lua') }
+        try { $DBFilesList = Get-Childitem ($config.settings.baseconfig.wowfolder + $WTFAccount + '\*\SavedVariables\CT_Raidtracker.lua') }
         catch { throw "Error: No files found. Check the wow folder location in the config and try again" ; exit }
         $count = $dbfileslist.count ; "Found $count files"
     }
     else {
         #Sanity check for existence of filename
-        $fullpathfilename = (pwd).path + '\' + $filename
-        if ((test-path $filename) -eq $false) { $Check1 = $false } else { $DBFilesList = ls $filename }
-        if ((test-path $fullpathfilename) -eq $false) { $check2 = $false } else { $DBFilesList = ls $fullpathfilename }
+        $fullpathfilename = (Get-Location).path + '\' + $filename
+        if ((test-path $filename) -eq $false) { $Check1 = $false } else { $DBFilesList = Get-ChildItem $filename }
+        if ((test-path $fullpathfilename) -eq $false) { $check2 = $false } else { $DBFilesList = Get-ChildItem $fullpathfilename }
         if (($check1 -eq $false) -and ($check2 -eq $false)) {  write-host "ERROR: NO FILE FOUND BY THE NAME OF $filename" ; exit } 
         #
     }
-    #Freshrun - Make sure we operate with a clean database.
-    if ($freshrun -eq "yes") { "Freshrun mode selected, Deleting old database files" ; rm $DBSub\*.csv } #This deletes information about ALL previous runs. Set $Freshrun to = no if you don't want this to happen.
-    $mode = $null
-    [int]$int = 0
-
-
-
-
     #Declaring object types
     $player = '				["player"]'
     $time = '				["time"]'
@@ -204,173 +388,19 @@ if ($DB) {
     #Declaring objs for holding the data
     $store = @{}
 
-
-
-    #Generating database begins
-    "Beginning generation of database. This may take a few minutes..."
-
-    #Beginning loop through files
-    $store = foreach ($DBFile in $DBFilesList) {
-        $import = cat $Dbfile
-        foreach ($entry in $import) { 
-            $obj = @()
-            $int++ #Counter
-
-            #Determining which block we are processing. Leave, Loot or Join
-            if ($entry -eq '		["Leave"] = {') { $mode = "leave"}
-            if ($entry -eq '		["Join"] = {') { $mode = "join" }
-            if ($entry -eq '		["Loot"] = {') { $mode = "loot" }
-
-
-
-            #Parsing individual results
-            $Raw = $entry.Split('=')
-            $CurrentItem = $Raw[0]
-            $Value = $raw[1]
-            $value = $value -replace '"', ""
-            $value = $value -replace ',', ""
-
-
-            #Player object begin
-            if ($CurrentItem -match [Regex]::Escape($Player)) { 
-                $itemmode = "Player"
-                $currentPlayer = $raw[1]
-                $currentplayer = $currentplayer.Replace('"', '') #Trimming quotation marks
-                $currentplayer = $currentplayer.Replace(',', '') #Trimming commas
-                $currentplayer = $currentplayer.Trim()           #Trimming whitespace
-            }
-            #URL processing
-            if ($CurrentItem -match [Regex]::Escape($ID)) { 
-            
-                $URL = $IDLookupPrefix + "$value"
-                $url = $url.Replace(" ", "") 
-                $Url = $url.Split(':')
-                $url = $url[0] + ':' + $url[1]
-                #$url
-            }
-        
-            #Quantity processing
-            if ($CurrentItem -match [Regex]::Escape($count)) {  $quantity = $value } #$CurrentItem }
-        
-            #Name of items
-            if ($CurrentItem -match [Regex]::Escape($name)) { $itemName = $value } #$CurrentItem }
-        
-            #Color processing
-            if ($CurrentItem -match [Regex]::Escape($colorhex)) {
-                $colorvalue = $value.Trim()
-                if ($colorvalue -eq "ff9d9d9d") { $coloringame = "Grey" ; $colorpriority = "0"}
-                if ($colorvalue -eq "ffffffff") { $coloringame = "White" ; $colorpriority = "1"}
-                if ($colorvalue -eq "ff1eff00") { $coloringame = "Green" ; $colorpriority = "2"}
-                if ($colorvalue -eq "ff0070dd") { $coloringame = "Blue" ; $colorpriority = "3"}
-                if ($colorvalue -eq "ffa335ee") { $coloringame = "Epic" ; $colorpriority = "4" }
-                if ($colorvalue -eq "ffff8000") { $coloringame = "Legendary" ; $colorpriority = "5" }
-            }
-
-
-            #Time processing
-            if ($CurrentItem -match [Regex]::Escape($time)) {
-                if (!$mode) { write-log "Error. Mode unknown on line" $int ; break }
-
-                #Gathering date and time information
-                $RawDate = $value -split "\s+"
-                #Converting the raw data into a Powershell DATETIME object.
-                [datetime]$date = $Rawdate[1] + " " + $rawdate[2]
-                #The dates are stored in US format, So let's make sure thats taken into consideration before we start changing things.
-                $USFormat = get-date $Date -format ($US.DateTimeFormat.FullDateTimePattern) 
-                if ($config.settings.reporting.convServerTime -eq $true) {
-                    $ConvertedDate = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId($USFormat, [System.TimeZoneInfo]::Local.Id, $Config.settings.baseconfig.timezoneid)
-                    $datestamp = get-date $ConvertedDate -format "yyyy.MM.dd"
-                    $Timestamp = get-date $ConvertedDate -Format "HH:mm:ss"
-                }
-                
-                else {
-                    $datestamp = get-date $USFormat -format "yyyy.MM.dd"
-                    $Timestamp = get-date $USformat -Format "HH:mm:ss"
-                }
-                
-            }
-            #Conversion finished, Lets now store the date and time in individual variables for ease of access.
-            
-            #Final block - Write the objects out
-            if ($CurrentItem -match [Regex]::Escape($final) -and ($currentitem.length -eq $final.length)) {
-                if ($mode -eq "leave") { 
-                    $obj = [pscustomobject][ordered]@{
-                        Name  = $currentplayer
-                        Leave = $timestamp
-                        Date  = $datestamp
-                        Mode  = $mode
-                    }
-                    #Passing object to the pipeline to store in $store
-                    $obj
-                    #Blanking to ensure that data is fresh each loop
-                    $obj = $null
-                    $currentplayer = $null
-                    $timestamp = $null
-                }
-        
-                if ($mode -eq "join") {
-                    $obj = [pscustomobject][ordered]@{
-                        Name = $currentplayer
-                        Join = $timestamp
-                        Date = $datestamp
-                        Mode = $mode
-                    }
-                    #Passing object to the pipeline to store in $store
-                    $obj
-                    #Blanking to ensure that data is fresh each loop
-                    $obj = $null
-                    $currentplayer = $null
-                    $timestamp = $null
-                }
-        
-                if ($mode -eq "loot") {
-                    $obj = [pscustomobject][ordered]@{
-                        Name     = $currentplayer
-                        Item     = $itemName.SubString(1)
-                        Color    = $colorvalue
-                        Quantity = $quantity
-                        Quality  = $coloringame
-                        Priority = $colorpriority
-                        URL      = $URL
-                        Date     = $datestamp 
-                        Mode     = $mode
-                    }
-                    #Passing object to the pipeline to store in $store
-                    $obj
-                    #Blanking to ensure that data is fresh each loop
-                    $obj = $null
-                    $currentplayer = $null
-                    $itemName = $null
-                    $colorvalue = $null
-                    $quantity = $null
-                    $coloringame = $null
-                    $colorpriority = $null
-                }
-            }
-        }
-   
+    #Freshrun - Make sure we operate with a clean database.
+    if ($freshrun -eq "yes") { 
+        "Freshrun mode selected, Deleting old database files"
+        #This deletes information about ALL previous runs. Set $Freshrun to = no if you don't want this to happen.
+        Remove-Item $DBSub\*.csv
     }
-    $joinexportfile = $DBSub + 'join.csv'
-    $leaveexportfile = $DBSub + 'leave.csv'
-    $lootexportfile = $DBSub + 'loot.csv'
-    $joinArr = New-Object System.Collections.ArrayList($null)
-    $leaveArr = New-Object System.Collections.ArrayList($null)
-    $lootArr = New-Object System.Collections.ArrayList($null)
-    foreach ($entry in $store) { 
-        switch ($entry.mode) {
-            join {[void]$joinArr.Add($entry) }
-            leave {[void]$leaveArr.Add($entry)}
-            loot {[void]$lootArr.Add($entry)}
-        }
-    }
-    $lootarr | export-csv $lootexportfile -NoTypeInformation
-    $joinarr | export-csv $joinexportfile -NoTypeInformation
-    $leavearr | export-csv $leaveexportfile -NoTypeInformation
-    #Making sure we refresh the loot array after a database refresh
-    if ($lootarray) { genlootarray }
-    write-host "Database generation complete."
-}
+    $mode = $null
+    [int]$int = 0
 
+
+    #Calling GenDB Function
+    GenDB
+} 
 #END GENERATION OF DB FUNCTION
 
 
@@ -392,7 +422,7 @@ if ($lastloot) {
     if (!$lootarray) { genlootarray }
     if (!$quantity) { [int]$quantity = "1" }
     if (($lastloot -ne "Healers") -and ($lastloot -ne "Tanks") -and ($lastloot -ne "DPS")) { $LLNames = $lastloot -Split ',' }
-    if ($lastloot -eq "healers") { $LLNames = cat D:\dropbox\guild\HealerList.txt }
+    if ($lastloot -eq "healers") { $LLNames = Get-Content D:\dropbox\guild\HealerList.txt }
         
     foreach ($entry in $llnames) {     
         checklastloot $entry            
