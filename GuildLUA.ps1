@@ -12,14 +12,13 @@ PARAM(
 KNOWN BUGS/NEEDS IMPLEMENTATION
 GUILDLUA.PS1
 
-Add better detection of Config_Lua.XML and make it so this does not need to be modded every time it is run on a different system
 Version number + update checker (Maybe DSC for this?)
 Add support for raids that occur on date changes (i.e go past midnight) easiest way to set duration of max raid window and then [datetime] calculation
 Rewrite raidfunction, Doesn't work with new DB type.
-Build attendance tracker. Calculate raid days based on times, Allow for blacklist/ignorelist. Allow linkage between 1 Main > Many alt
+Build attendance tracker. Calculate raid days based on times > Allow linkage between 1 Main > Many alt
 Add help data
 
-
+GUI STUFF
 CONFIGGUI.PS1
 
 Configuration GUI    : Change LUA file to WoW folder selection box
@@ -42,10 +41,43 @@ Reporting GUI        : Character search (Accompanying text indicating * option)
                      : Introduction
 #>
 $ErrorActionPreference = "stop"
-#Load the config file
-$ConfigFile = "H:\GLUA\GuildLUA-master\config_Lua.xml"
+
+#Configuration file logic.
+#First, A static entry can be configured in the "ConfigFile" variable
+#If this cannot be located, We look in the current working directory for the file. If this can't be found, the script stops.
+
+$ConfigFile = "H:\GuildLUA\confiddg_Lua.xml"
+$currentDir = pwd | select -ExpandProperty path
+$localConf = $currentdir + '\' + 'config_lua.xml'
+$localStamp = $currentdir + '\' + 'stamp.txt'
+if (!(test-path $configfile -ErrorAction SilentlyContinue)) {
+    try {
+        if (test-path -ErrorAction SilentlyContinue $localConf) { 
+            "Found configuration file $localconf"
+            $ConfigFile = $localConf
+            if (test-path $localStamp) { 
+                if ((get-content $localstamp) -eq '19685a9d1dc9ae0cc97c49c95419cb48b0993f14') {
+                    'We are currently in the working directory.'
+                    [xml]$Config = Get-Content $ConfigFile
+                    if ($Config.settings.baseconfig.workingdir -ne $currentdir) {
+                        'Updating the settings to use $currentdir as the new working directory'
+                        $config.settings.baseconfig.workingdir = $currentDir.ToString()
+                        $config.save($ConfigFile)
+                    }
+                }
+            }
+        }
+    }
+    catch { $error[0] } 
+}
+
+
+
+
+
+#Reloading config file in case it was not loaded properly above.
 [xml]$Config = Get-Content $ConfigFile
-$freshrun = "no"
+
 
 #Pre-Requisite checks for existing data. Creates directories if they do not exist
 
@@ -117,6 +149,10 @@ function Write-Log {
 }
 
 Function GenDB {
+
+    #Declaring objs for holding the data
+    $store = @{}
+
     #Generating database begins
     "Beginning generation of database. This may take a few minutes..."
 
@@ -183,8 +219,10 @@ Function GenDB {
 
                 #Gathering date and time information
                 $RawDate = $value -split "\s+"
+
                 #Converting the raw data into a Powershell DATETIME object.
                 [datetime]$date = $Rawdate[1] + " " + $rawdate[2]
+
                 #The dates are stored in US format, So let's make sure thats taken into consideration before we start changing things.
                 $USFormat = get-date $Date -format ($US.DateTimeFormat.FullDateTimePattern) 
                 if ($config.settings.reporting.convServerTime -eq $true) {
@@ -273,11 +311,11 @@ Function GenDB {
             loot {[void]$lootArr.Add($entry)}
         }
     }
-    if ($freshrun -eq "yes") {
-    $lootarr | export-csv $lootexportfile -NoTypeInformation
-    $joinarr | export-csv $joinexportfile -NoTypeInformation
-    $leavearr | export-csv $leaveexportfile -NoTypeInformation
-    #Making sure we refresh the loot array after a database refresh
+    if ($config.settings.baseconfig.dbfreshrun -eq "True") {
+        $lootarr | export-csv $lootexportfile -NoTypeInformation
+        $joinarr | export-csv $joinexportfile -NoTypeInformation
+        $leavearr | export-csv $leaveexportfile -NoTypeInformation
+        #Making sure we refresh the loot array after a database refresh
     }
     else {
         $oldLootarr = import-csv $lootexportfile
@@ -371,20 +409,16 @@ if ($DB) {
     #Declaring object types
     $player = '				["player"]'
     $time = '				["time"]'
-    $item = '				["item"]'
     $name = '					["name"]'
     $colorhex = '					["c"]'
     $count = '					["count"]'
     $ID = '					["id"]'
     $final = '			},'
 
-    #Declaring objs for holding the data
-    $store = @{}
-
     #Freshrun - Make sure we operate with a clean database.
-    if ($freshrun -eq "yes") { 
+    if ($config.settings.baseconfig.dbfreshrun -eq "True") { 
         "Freshrun mode selected, Deleting old database files"
-        #This deletes information about ALL previous runs. Set $Freshrun to = no if you don't want this to happen.
+        #This deletes information about ALL previous runs. Set $config.settings.baseconfig.dbfreshrun to $false if you do not want this to occur
         Remove-Item $DBSub\*.csv
     }
     $mode = $null
@@ -404,9 +438,6 @@ if ($Character) {
     charactersearch -charname "$character"
 }
 
-
-
-#END RAID REPORT
 
 
 #LAST LOOT
