@@ -15,6 +15,9 @@ GUILDLUA.PS1
 Version number + update checker (Maybe DSC for this?)
 Build attendance tracker. Calculate raid days based on times > Allow linkage between 1 Main > Many alt
 Add help data
+Blacklist for raid/character reports.
+
+
 
 GUI STUFF
 CONFIGGUI.PS1
@@ -51,14 +54,13 @@ $localStamp = $currentdir + '\' + 'stamp.txt'
 if (!(test-path $configfile -ErrorAction SilentlyContinue)) {
     try {
         if (test-path -ErrorAction SilentlyContinue $localConf) { 
-            "Found configuration file $localconf"
+            "Using configuration file $localconf"
             $ConfigFile = $localConf
             if (test-path $localStamp) { 
                 if ((get-content $localstamp) -eq '19685a9d1dc9ae0cc97c49c95419cb48b0993f14') {
-                    'We are currently in the working directory.'
                     [xml]$Config = Get-Content $ConfigFile
                     if ($Config.settings.baseconfig.workingdir -ne $currentdir) {
-                        'Updating the settings to use $currentdir as the new working directory'
+                        'Updating the settings to use the current directory as the new working directory'
                         $config.settings.baseconfig.workingdir = $currentDir.ToString()
                         $config.save($ConfigFile)
                     }
@@ -88,6 +90,9 @@ $RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporti
 #Function declaration
 
 #Generate an array full of the loot listings for quicker searching
+function genLootArray {
+    $script:lootarray = import-csv ($DBSub + '\' + 'loot.csv')
+}
 function RaidFunction {
     $raiddays = $Config.settings.reporting.Raiddays.Split(",") 
     Write-host "Generating raid specific reports. Please wait"
@@ -387,7 +392,9 @@ Function GenDB {
             loot {[void]$lootArr.Add($entry)}
         }
     }
-    if ($config.settings.baseconfig.dbfreshrun -eq "True") {
+    #checking for existence of database files, fresh run mode is assumed if no CSV files in DB folder
+    $LS = Get-ChildItem ($dbsub + '\' + "*.csv")
+    if (($config.settings.baseconfig.dbfreshrun -eq "True") -or (!$LS)) {
         $lootarr | export-csv $lootexportfile -NoTypeInformation
         $joinarr | export-csv $joinexportfile -NoTypeInformation
         $leavearr | export-csv $leaveexportfile -NoTypeInformation
@@ -519,15 +526,28 @@ if ($Character) {
 }
 
 
-
+ 
 
 
 if ($itemsearch) {
-    if (!$lootarray) { genLootArray }
+    if (!$lootarray) { genlootarray }
     foreach ($entry in $lootarray) {
         if ($entry.item -like $itemsearch) { $entry }
     }
 }
 
+#Use name expressions to make multiple columns for output 
 
-
+<#IE
+Zaldre      Zombius
+Item1       Item3  
+Item2       Item4
+#>
+if ($lastloot) {
+if (!$lootarray) { genlootarray ; $Lootarray = $lootarray | sort-object -Property date }
+    if ($lastloot -like "*,*") { "Multiple characters found"; $looter = $lastloot.Split(",")}
+    else {$Looter = $lastloot }
+    foreach ($entry in $looter) { 
+        $lootarray | Where-Object {$_.name -eq $entry} | Select-Object Item -Last 5
+    }
+}
