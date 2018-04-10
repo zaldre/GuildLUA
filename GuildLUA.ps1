@@ -13,8 +13,6 @@ KNOWN BUGS/NEEDS IMPLEMENTATION
 GUILDLUA.PS1
 
 Version number + update checker (Maybe DSC for this?)
-Add support for raids that occur on date changes (i.e go past midnight) easiest way to set duration of max raid window and then [datetime] calculation
-Rewrite raidfunction, Doesn't work with new DB type.
 Build attendance tracker. Calculate raid days based on times > Allow linkage between 1 Main > Many alt
 Add help data
 
@@ -47,7 +45,7 @@ $ErrorActionPreference = "stop"
 #If this cannot be located, We look in the current working directory for the file. If this can't be found, the script stops.
 
 $ConfigFile = "H:\GuildLUA\confiddg_Lua.xml"
-$currentDir = pwd | select -ExpandProperty path
+$currentDir = Get-Location | select-object -ExpandProperty path
 $localConf = $currentdir + '\' + 'config_lua.xml'
 $localStamp = $currentdir + '\' + 'stamp.txt'
 if (!(test-path $configfile -ErrorAction SilentlyContinue)) {
@@ -90,11 +88,89 @@ $RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporti
 #Function declaration
 
 #Generate an array full of the loot listings for quicker searching
-function genLootArray {
-    $global:lootarray = import-csv ($dbsub + "loot.csv")
+function RaidFunction {
+    $raiddays = $Config.settings.reporting.Raiddays.Split(",") 
+    Write-host "Generating raid specific reports. Please wait"
+    $collection = New-Object System.Collections.ArrayList
+    $joinfile = $dbsub + 'join.csv'
+    $leavefile = $dbsub + 'leave.csv'
+    $lootfile = $dbsub + 'loot.csv'
+    $rjoinCSVimport = import-csv $joinfile
+    $rleaveCSVimport = import-csv $leavefile
+    $rlootCSVimport = import-csv $lootfile
+    
+    $RaidReportFolder = $RPSub + 'Raids\'
+    if ((test-path $RaidReportFolder) -ne $true) { mkdir $RaidReportFolder }
+    if ($raid -eq '*') {
+            
+        $files = $joinfile, $leavefile, $lootfile
+        $store = $files | Foreach-Object { 
+            $import = import-csv $_
+            foreach ($item in $import) { 
+                [datetime]$dateformatting = $item.date.Replace('.', '/')
+                if (($Raiddays -like $dateformatting.dayofweek) -and ($Config.settings.reporting.raidtimeonly -eq $true)) { 
+                    $item.date
+                }
+                if ($Config.settings.reporting.raidtimeonly -ne $true) {  $item.date }
+            }
+        }
+        $collection = $store | select-object -unique
+    }
+    else { $collection = $raid }
+        
+    #Ok, Now we've determined the results we're looking for. Lets start the processing.
+    foreach ($raidentry in $collection) {
+        #Output File Name
+        $raidreportfilename = $raidreportfolder + 'RaidReport_' + $raidentry + '.csv'
+        #CLEAR OUT ALL OLD RAID REPORTS
+        if (test-path $raidreportfilename) { Remove-Item $RaidReportfilename }
+        #Go through Join.csv, Find all entries, Parse through unique
+        #Add Leave.CSV, Find all entries, Filter unique in addition to join (Just in case someone joined while you were DC'd)
+        #Filter all results, Find last leave and last join for that user in a loop
+        #Repeat for loot, Semicolon separate all loot items
+        #Add URL for loot items
+    
+        $namearray = New-Object System.Collections.ArrayList($null)
+        $sortJoins = $rjoinCSVimport | Where-Object {$_.date -eq $raidentry}
+        $sortLeaves = $rleaveCSVimport | Where-Object {$_.date -eq $raidentry}
+        $sortLoot = $rlootCSVimport | Where-Object {$_.date -eq $raidentry}
+    
+                
+        $sortjoins | Foreach-Object { [void]$namearray.Add($_.name) }
+        $sortleaves | Foreach-Object { [void]$namearray.Add($_.name) }
+        $sortloot | Foreach-Object { [void]$namearray.Add($_.name) }
+            
+        $namearray = $namearray | Select-Object -Unique
+       
+        $store = foreach ($name in $namearray) { 
+            $lootlist = $null
+            $JoinTime = $sortjoins | Foreach-Object {$_.name -eq "$name"} | sort-object -Property join | select-Object join -first 1
+            $leavetime = $sortleaves | Foreach-Object {$_.name -eq "$name"} | sort-object -property leave | select-Object leave -last 1
+            $lootCollection = $sortloot | Foreach-Object {$_.name -eq "$name"} | Where-Object {$_.priority -ge $Config.settings.reporting.qualityfilter}
+            foreach ($loot in $lootcollection) {
+                if ($lootlist -eq $null) { $lootlist = $loot.item } else { $lootlist = $lootlist + ";" + $loot.item }
+                if ($URLlist -eq $null) { $URLlist = $loot.URL } else { $URLlist = $URLlist + ";" + $loot.URL }
+            }
+            if (!$leavetime.leave) { $perPersonLeave = "NO DATA" } else { $perPersonLeave = $leavetime.leave }
+            if (!$jointime.join) { $perPersonjoin = "NO DATA" }  Else { $perPersonJoin = $jointime.join }
+            $obj = [pscustomobject][ordered]@{
+                Name  = $name
+                Join  = $perPersonJoin
+                Leave = $perPersonLeave
+                Loot  = $lootlist
+                URL   = $URLList
+            
+            }
+            $obj
+            $lootlist = $null
+            $urllist = $null
+        }
+        $store | export-csv $raidreportfilename -NoTypeInformation
+    }
 }
 
-#Function to search for characters in that array
+
+#Function to search characters in DB
 function characterSearch($charname) {
     if (!(test-path $CharacterReportFolder)) { mkdir $CharacterReportFolder }
     if (!$lootarray) {
@@ -430,6 +506,10 @@ if ($DB) {
 } 
 #END GENERATION OF DB FUNCTION
 
+if ($raid) {
+    raidfunction
+
+}
 
 #Character search
 
@@ -440,20 +520,7 @@ if ($Character) {
 
 
 
-#LAST LOOT
 
-if ($lastloot) { 
-    if (!$lootarray) { genlootarray }
-    if (!$quantity) { [int]$quantity = "1" }
-    if (($lastloot -ne "Healers") -and ($lastloot -ne "Tanks") -and ($lastloot -ne "DPS")) { $LLNames = $lastloot -Split ',' }
-    if ($lastloot -eq "healers") { $LLNames = Get-Content D:\dropbox\guild\HealerList.txt }
-        
-    foreach ($entry in $llnames) {     
-        checklastloot $entry            
-    }
-}
-
-#ITEM SEARCH
 
 if ($itemsearch) {
     if (!$lootarray) { genLootArray }
