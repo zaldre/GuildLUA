@@ -1,0 +1,10 @@
+DB Gen
+
+New iteration: 34 seconds
+Past iteration: 2 minutes 6 seconds
+
+
+Character gen
+
+New iteration: 3 Seconds
+Past iteration: 4 mins 10 seconds
