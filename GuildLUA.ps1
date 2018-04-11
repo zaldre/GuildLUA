@@ -7,6 +7,7 @@ PARAM(
     [string]$filename,
     [int]$quantity
 )
+$ConfigFile = "H:\GuildLUA\config_Lua.xml"
 
 <#
 KNOWN BUGS/NEEDS IMPLEMENTATION
@@ -46,8 +47,6 @@ $ErrorActionPreference = "stop"
 #Configuration file logic.
 #First, A static entry can be configured in the "ConfigFile" variable
 #If this cannot be located, We look in the current working directory for the file. If this can't be found, the script stops.
-
-$ConfigFile = "H:\GuildLUA\confiddg_Lua.xml"
 $currentDir = Get-Location | select-object -ExpandProperty path
 $localConf = $currentdir + '\' + 'config_lua.xml'
 $localStamp = $currentdir + '\' + 'stamp.txt'
@@ -102,8 +101,7 @@ function RaidFunction {
     $lootfile = $dbsub + 'loot.csv'
     $rjoinCSVimport = import-csv $joinfile
     $rleaveCSVimport = import-csv $leavefile
-    $rlootCSVimport = import-csv $lootfile
-    
+    $rlootCSVimport = import-csv $lootfile   
     $RaidReportFolder = $RPSub + 'Raids\'
     if ((test-path $RaidReportFolder) -ne $true) { mkdir $RaidReportFolder }
     if ($raid -eq '*') {

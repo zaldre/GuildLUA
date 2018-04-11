@@ -16,4 +16,8 @@
     <monitoredTimeend>14:30</monitoredTimeend>
     <raidtimeonly>True</raidtimeonly>
   </reporting>
+  <updates>
+	<currentversion>1.1</currentversion>
+	<lastcheck>2018-04-12 0:27:18</lastcheck>
+  </updates>
 </settings>
