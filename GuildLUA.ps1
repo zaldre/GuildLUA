@@ -109,7 +109,7 @@ function RaidFunction {
     if ($raid -eq '*') {
             
         $files = $joinfile, $leavefile, $lootfile
-        $store = $files | Foreach-Object { 
+        $filelist = $files | Foreach-Object { 
             $import = import-csv $_
             foreach ($item in $import) { 
                 [datetime]$dateformatting = $item.date.Replace('.', '/')
@@ -119,7 +119,7 @@ function RaidFunction {
                 if ($Config.settings.reporting.raidtimeonly -ne $true) {  $item.date }
             }
         }
-        $collection = $store | select-object -unique
+        $collection = $filelist | select-object -unique
     }
     else { $collection = $raid }
         
@@ -127,8 +127,6 @@ function RaidFunction {
     foreach ($raidentry in $collection) {
         #Output File Name
         $raidreportfilename = $raidreportfolder + 'RaidReport_' + $raidentry + '.csv'
-        #CLEAR OUT ALL OLD RAID REPORTS
-        if (test-path $raidreportfilename) { Remove-Item $RaidReportfilename }
         #Go through Join.csv, Find all entries, Parse through unique
         #Add Leave.CSV, Find all entries, Filter unique in addition to join (Just in case someone joined while you were DC'd)
         #Filter all results, Find last leave and last join for that user in a loop
@@ -149,9 +147,9 @@ function RaidFunction {
        
         $store = foreach ($name in $namearray) { 
             $lootlist = $null
-            $JoinTime = $sortjoins | Foreach-Object {$_.name -eq "$name"} | sort-object -Property join | select-Object join -first 1
-            $leavetime = $sortleaves | Foreach-Object {$_.name -eq "$name"} | sort-object -property leave | select-Object leave -last 1
-            $lootCollection = $sortloot | Foreach-Object {$_.name -eq "$name"} | Where-Object {$_.priority -ge $Config.settings.reporting.qualityfilter}
+            $JoinTime = $sortjoins | Where-Object {$_.name -eq "$name"} | sort-object -Property join | select-Object join -first 1
+            $leavetime = $sortleaves | Where-Object {$_.name -eq "$name"} | sort-object -property leave | select-Object leave -last 1
+            $lootCollection = $sortloot | Where-Object {$_.name -eq "$name"} | Where-Object {$_.priority -ge $Config.settings.reporting.qualityfilter}
             foreach ($loot in $lootcollection) {
                 if ($lootlist -eq $null) { $lootlist = $loot.item } else { $lootlist = $lootlist + ";" + $loot.item }
                 if ($URLlist -eq $null) { $URLlist = $loot.URL } else { $URLlist = $URLlist + ";" + $loot.URL }
