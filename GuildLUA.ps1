@@ -92,6 +92,13 @@ $RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporti
 function genLootArray {
     $script:lootarray = import-csv ($DBSub + '\' + 'loot.csv')
 }
+function Update-ConfigFile($property, $value) {
+    $config.settings. + $property = $value
+       # $config.Save($ConfigFile)
+   # [xml]$Config = Get-Content $ConfigFile
+
+
+}
 function RaidFunction {
     $raiddays = $Config.settings.reporting.Raiddays.Split(",") 
     Write-host "Generating raid specific reports. Please wait"
