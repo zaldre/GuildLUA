@@ -13,10 +13,11 @@ $ConfigFile = "H:\GuildLUA\coddddnfig_Lua.xml"
 KNOWN BUGS/NEEDS IMPLEMENTATION
 GUILDLUA.PS1
 
-Version number + update checker (Maybe DSC for this?)
+Version number + update checker (NuGet)
 Build attendance tracker. Calculate raid days based on times > Allow linkage between 1 Main > Many alt
 Add help data
-
+Filter based on Time as well as date (partially implemented)
+Implement functionality for raids that span over night (Past midnight)
 
 
 GUI STUFF
@@ -88,8 +89,7 @@ $DBSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.basecon
 $RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporting.reportfolder + '\'
 
 
-if (test-path ($Dbsub + 'blacklist.txt')) { $blacklist = get-content ($DBsub + 'blacklist.txt') ; "Blacklist file imported."} else { "No blacklist file found."}
-
+if (test-path ($Dbsub + 'blacklist.txt')) { $blacklist = get-content ($DBsub + 'blacklist.txt') }
 $blacklist
 #Function declaration
 
@@ -101,7 +101,9 @@ function Update-ConfigFile($property, $value) {
     $config.settings. + $property = $value
 }
 function RaidFunction {
-    $raiddays = $Config.settings.reporting.Raiddays.Split(",") 
+    $raidDays = $Config.settings.reporting.Raiddays.Split(",") 
+    $raidStart = $config.settings.reporting.monitoredtimestart
+    $raidDuration = $config.settings.reporting.monitoredDuration
     Write-host "Generating raid specific reports. Please wait"
     $collection = New-Object System.Collections.ArrayList
     $joinfile = $dbsub + 'join.csv'
@@ -118,7 +120,12 @@ function RaidFunction {
         $filelist = $files | Foreach-Object { 
             $import = import-csv $_ 
             foreach ($item in $import) { 
-                [datetime]$dateformatting = $item.date.Replace('.', '/')
+                switch ($item.mode) {
+                    leave { $time = $item.leave }
+                    join { $time = $item.join }
+                    loot { $time = $item.loot }
+                }
+                [datetime]$dateformatting = $item.date.Replace('.', '/') $time
                 if (($Raiddays -like $dateformatting.dayofweek) -and ($Config.settings.reporting.raidtimeonly -eq $true) -and ($blacklist -notcontains $item.date)) { 
                     $item.date
                 }
@@ -367,6 +374,7 @@ Function GenDB {
                         URL      = $URL
                         Date     = $datestamp 
                         Mode     = $mode
+                        Loot     = $timestamp
                     }
                     #Passing object to the pipeline to store in $store
                     $obj
