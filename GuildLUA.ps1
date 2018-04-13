@@ -8,19 +8,7 @@ PARAM(
     [int]$quantity
 )
 $ConfigFile = "H:\GuildLUA\coddddnfig_Lua.xml"
-#Pre-Requisite checks for existing data. Creates directories if they do not exist
-$DBSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.baseconfig.databasefolder + '\'
-$RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporting.reportfolder + '\'
-$CharacterReportFolder = $RPSub + 'Character\'
-$RaidReportFolder = $RPSub + 'Raids\'
-if ((test-path $Config.settings.baseconfig.workingdir) -eq $false) { mkdir $Config.settings.baseconfig.workingdir }
-if ((test-path $DBSub) -eq $false) { mkdir $DBSub }
-if ((test-path $RPSub) -eq $false) { mkdir $RPSub }
-$IDLookupPrefix = 'https://classicdb.ch/?item=' #Used in loot output, PREFIX + ITEMID = URL
-$joinfile = $dbsub + 'join.csv'
-$leavefile = $dbsub + 'leave.csv'
-$lootfile = $dbsub + 'loot.csv'
-$files = $joinfile, $leavefile, $lootfile
+
 
 
 <#
@@ -92,14 +80,26 @@ if (!(test-path $configfile -ErrorAction SilentlyContinue)) {
 }
 
 
-
+#Variable declaration
+#Pre-Requisite checks for existing data. Creates directories if they do not exist
+$DBSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.baseconfig.databasefolder + '\'
+$RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporting.reportfolder + '\'
+$CharacterReportFolder = $RPSub + 'Character\'
+$RaidReportFolder = $RPSub + 'Raids\'
+if ((test-path $Config.settings.baseconfig.workingdir) -eq $false) { mkdir $Config.settings.baseconfig.workingdir }
+if ((test-path $DBSub) -eq $false) { mkdir $DBSub }
+if ((test-path $RPSub) -eq $false) { mkdir $RPSub }
+$IDLookupPrefix = 'https://classicdb.ch/?item=' #Used in loot output, PREFIX + ITEMID = URL
+$joinfile = $dbsub + 'join.csv'
+$leavefile = $dbsub + 'leave.csv'
+$lootfile = $dbsub + 'loot.csv'
+$files = $joinfile, $leavefile, $lootfile
 
 
 #Reloading config file in case it was not loaded properly above.
 [xml]$Config = Get-Content $ConfigFile
 
 if (test-path ($Dbsub + 'blacklist.txt')) { $blacklist = get-content ($DBsub + 'blacklist.txt') }
-$blacklist
 #Function declaration
 
 #Generate an array full of the loot listings for quicker searching
@@ -250,7 +250,9 @@ Function GenDB {
     $store = @{}
 
     #Generating database begins
-    "Beginning generation of database. This may take a few minutes..."
+    
+    if ($config.settings.baseconfig.Freshrun -eq $true) { "Database generation being performed in FRESH mode"}
+    else { "Database generation being performed in APPEND mode."}
 
     #Beginning loop through files
     $store = foreach ($DBFile in $DBFilesList) {
@@ -409,7 +411,7 @@ Function GenDB {
         }
     }
     #checking for existence of database files, fresh run mode is assumed if no CSV files in DB folder
-    $LS = Get-ChildItem ($dbsub + '\' + "*.csv")
+    $LS = Get-ChildItem ($dbsub + '\' + "*.csv") | Where-Object {$_.name -eq "join.csv" -or $_.name -eq "leave.csv" -or $_.name -eq "loot.csv"}
     if (($config.settings.baseconfig.dbfreshrun -eq "True") -or (!$LS)) {
         $lootarr | export-csv $lootexportfile -NoTypeInformation
         $joinarr | export-csv $joinexportfile -NoTypeInformation
@@ -472,6 +474,7 @@ if ($DB) {
         $WTFAccount = "\WTF\ACCOUNT\"
         try { $DBFilesList = Get-Childitem ($config.settings.baseconfig.wowfolder + $WTFAccount + '\*\SavedVariables\CT_Raidtracker.lua') }
         catch { throw "Error: No files found. Check the wow folder location in the config and try again" ; exit }
+        "Scanning through LUA file(s) for CT_RaidTracker information, This may take a few minutes..."
         $count = $dbfileslist.count ; "Found $count files"
     }
     else {
