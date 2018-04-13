@@ -8,6 +8,20 @@ PARAM(
     [int]$quantity
 )
 $ConfigFile = "H:\GuildLUA\coddddnfig_Lua.xml"
+#Pre-Requisite checks for existing data. Creates directories if they do not exist
+$DBSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.baseconfig.databasefolder + '\'
+$RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporting.reportfolder + '\'
+$CharacterReportFolder = $RPSub + 'Character\'
+$RaidReportFolder = $RPSub + 'Raids\'
+if ((test-path $Config.settings.baseconfig.workingdir) -eq $false) { mkdir $Config.settings.baseconfig.workingdir }
+if ((test-path $DBSub) -eq $false) { mkdir $DBSub }
+if ((test-path $RPSub) -eq $false) { mkdir $RPSub }
+$IDLookupPrefix = 'https://classicdb.ch/?item=' #Used in loot output, PREFIX + ITEMID = URL
+$joinfile = $dbsub + 'join.csv'
+$leavefile = $dbsub + 'leave.csv'
+$lootfile = $dbsub + 'loot.csv'
+$files = $joinfile, $leavefile, $lootfile
+
 
 <#
 KNOWN BUGS/NEEDS IMPLEMENTATION
@@ -84,11 +98,6 @@ if (!(test-path $configfile -ErrorAction SilentlyContinue)) {
 #Reloading config file in case it was not loaded properly above.
 [xml]$Config = Get-Content $ConfigFile
 
-#Pre-Requisite checks for existing data. Creates directories if they do not exist
-$DBSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.baseconfig.databasefolder + '\'
-$RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporting.reportfolder + '\'
-
-
 if (test-path ($Dbsub + 'blacklist.txt')) { $blacklist = get-content ($DBsub + 'blacklist.txt') }
 $blacklist
 #Function declaration
@@ -106,17 +115,12 @@ function RaidFunction {
     $raidDuration = $config.settings.reporting.monitoredDuration
     Write-host "Generating raid specific reports. Please wait"
     $collection = New-Object System.Collections.ArrayList
-    $joinfile = $dbsub + 'join.csv'
-    $leavefile = $dbsub + 'leave.csv'
-    $lootfile = $dbsub + 'loot.csv'
     $rjoinCSVimport = import-csv $joinfile
     $rleaveCSVimport = import-csv $leavefile
     $rlootCSVimport = import-csv $lootfile   
     $RaidReportFolder = $RPSub + 'Raids\'
     if ((test-path $RaidReportFolder) -ne $true) { mkdir $RaidReportFolder }
     if ($raid -eq '*') {
-            
-        $files = $joinfile, $leavefile, $lootfile
         $filelist = $files | Foreach-Object { 
             $import = import-csv $_ 
             foreach ($item in $import) { 
@@ -125,7 +129,7 @@ function RaidFunction {
                     join { $time = $item.join }
                     loot { $time = $item.loot }
                 }
-                [datetime]$dateformatting = $item.date.Replace('.', '/') $time
+                [datetime]$dateformatting = $item.date.Replace('.', '/') ; $time
                 if (($Raiddays -like $dateformatting.dayofweek) -and ($Config.settings.reporting.raidtimeonly -eq $true) -and ($blacklist -notcontains $item.date)) { 
                     $item.date
                 }
@@ -449,18 +453,6 @@ Function GenDB {
 
 #END FUNCTION DECLARATION
 
-
-#Pre-Requisite checks for existing data. Creates directories if they do not exist
-
-$DBSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.baseconfig.databasefolder + '\'
-$RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporting.reportfolder + '\'
-$CharacterReportFolder = $RPSub + 'Character\'
-$RaidReportFolder = $RPSub + 'Raids\'
-if ((test-path $Config.settings.baseconfig.workingdir) -eq $false) { mkdir $Config.settings.baseconfig.workingdir }
-if ((test-path $DBSub) -eq $false) { mkdir $DBSub }
-if ((test-path $RPSub) -eq $false) { mkdir $RPSub }
-$IDLookupPrefix = 'https://classicdb.ch/?item=' #Used in loot output, PREFIX + ITEMID = URL
-
 #END CONFIGURABLE SECTION
 
 
@@ -503,7 +495,9 @@ if ($DB) {
     if ($config.settings.baseconfig.dbfreshrun -eq "True") { 
         "Freshrun mode selected, Deleting old database files"
         #This deletes information about ALL previous runs. Set $config.settings.baseconfig.dbfreshrun to $false if you do not want this to occur
-        Remove-Item $DBSub\*.csv
+       foreach ($file in $files) {
+        if (test-path $file) { Remove-Item $file }
+       }
     }
     $mode = $null
     [int]$int = 0
