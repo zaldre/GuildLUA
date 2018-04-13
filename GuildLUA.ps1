@@ -7,7 +7,7 @@ PARAM(
     [string]$filename,
     [int]$quantity
 )
-$ConfigFile = "H:\GuildLUA\config_Lua.xml"
+$ConfigFile = "H:\GuildLUA\coddddnfig_Lua.xml"
 
 <#
 KNOWN BUGS/NEEDS IMPLEMENTATION
@@ -16,7 +16,6 @@ GUILDLUA.PS1
 Version number + update checker (Maybe DSC for this?)
 Build attendance tracker. Calculate raid days based on times > Allow linkage between 1 Main > Many alt
 Add help data
-Blacklist for raid/character reports.
 
 
 
@@ -43,6 +42,13 @@ Reporting GUI        : Character search (Accompanying text indicating * option)
                      : Introduction
 #>
 $ErrorActionPreference = "stop"
+
+#Making sure an appropriate version of powershell is installed
+if ($PSVersionTable.psversion.major -le "4") { 
+    'ERROR: Your version of Powershell is out of date and is incompatible with this script.'
+    'Please visit https://www.microsoft.com/en-us/download/details.aspx?id=54616 and install Windows Management Framework Version 5 or higher in order to proceed'
+    exit 
+}
 
 #Configuration file logic.
 #First, A static entry can be configured in the "ConfigFile" variable
@@ -77,15 +83,14 @@ if (!(test-path $configfile -ErrorAction SilentlyContinue)) {
 #Reloading config file in case it was not loaded properly above.
 [xml]$Config = Get-Content $ConfigFile
 
-
 #Pre-Requisite checks for existing data. Creates directories if they do not exist
-
 $DBSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.baseconfig.databasefolder + '\'
 $RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporting.reportfolder + '\'
 
 
+if (test-path ($Dbsub + 'blacklist.txt')) { $blacklist = get-content ($DBsub + 'blacklist.txt') ; "Blacklist file imported."} else { "No blacklist file found."}
 
-
+$blacklist
 #Function declaration
 
 #Generate an array full of the loot listings for quicker searching
@@ -94,10 +99,6 @@ function genLootArray {
 }
 function Update-ConfigFile($property, $value) {
     $config.settings. + $property = $value
-       # $config.Save($ConfigFile)
-   # [xml]$Config = Get-Content $ConfigFile
-
-
 }
 function RaidFunction {
     $raiddays = $Config.settings.reporting.Raiddays.Split(",") 
@@ -115,13 +116,13 @@ function RaidFunction {
             
         $files = $joinfile, $leavefile, $lootfile
         $filelist = $files | Foreach-Object { 
-            $import = import-csv $_
+            $import = import-csv $_ 
             foreach ($item in $import) { 
                 [datetime]$dateformatting = $item.date.Replace('.', '/')
-                if (($Raiddays -like $dateformatting.dayofweek) -and ($Config.settings.reporting.raidtimeonly -eq $true)) { 
+                if (($Raiddays -like $dateformatting.dayofweek) -and ($Config.settings.reporting.raidtimeonly -eq $true) -and ($blacklist -notcontains $item.date)) { 
                     $item.date
                 }
-                if ($Config.settings.reporting.raidtimeonly -ne $true) {  $item.date }
+                if (($Config.settings.reporting.raidtimeonly -ne $true) -and ($blacklist -notcontains $item.date)) {  $item.date }
             }
         }
         $collection = $filelist | select-object -unique
@@ -198,7 +199,7 @@ function characterSearch($charname) {
     if ($charname -eq '*') {
         "Generating character reports for all users in the database. This may take some time."
         $chararray = New-Object System.Collections.ArrayList($null)
-        $lootarray = $LootArray | sort-object -Property Name
+        $lootarray = $LootArray | Where-Object {$blacklist -notcontains $_.date} | sort-object -Property Name
         foreach ($entry in $lootarray) {
             if (($entry.name -ne $lastname) -and ($lastname -ne $null)) {
                 $CharacterReport = $CharacterReportFolder + $lastname + "_loot.csv"
@@ -214,7 +215,7 @@ function characterSearch($charname) {
     #Single character search
     if (($charname -notlike "*,*") -and ($charname -ne '*')) {
         $CharacterReport = $CharacterReportFolder + $charname + "_loot.csv"
-        $filteredLootArray = $LootArray | Where-Object {$_.name -eq $Charname}
+        $filteredLootArray = $LootArray | Where-Object {$_.name -eq $Charname -and $blacklist -notcontains $_.date}
         $characterStore = foreach ($loot in $filteredLootArray) {
             if ($loot.priority -ge $Config.settings.reporting.qualityfilter) { $loot }
         }
@@ -454,18 +455,7 @@ $IDLookupPrefix = 'https://classicdb.ch/?item=' #Used in loot output, PREFIX + I
 
 #END CONFIGURABLE SECTION
 
-#Loading function module
 
-#Import-module ($Config.settings.baseconfig.workingdir + '\' + "Function.psm1")
-
-
-
-#Making sure an appropriate version of powershell is installed
-if ($PSVersionTable.psversion.major -le "4") { 
-    'ERROR: Your version of Powershell is out of date and is incompatible with this script.'
-    'Please visit https://www.microsoft.com/en-us/download/details.aspx?id=54616 and install Windows Management Framework Version 5 or higher in order to proceed'
-    exit 
-}
 
 $US = New-Object system.globalization.cultureinfo("en-US") #Times are saved in US format in the LUA file. This variable helps us convert that
 
