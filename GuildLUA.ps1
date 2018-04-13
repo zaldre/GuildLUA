@@ -122,6 +122,7 @@ function RaidFunction {
     if ((test-path $RaidReportFolder) -ne $true) { mkdir $RaidReportFolder }
     if ($raid -eq '*') {
         $filelist = $files | Foreach-Object { 
+           
             $import = import-csv $_ 
             foreach ($item in $import) { 
                 switch ($item.mode) {
@@ -129,7 +130,7 @@ function RaidFunction {
                     join { $time = $item.join }
                     loot { $time = $item.loot }
                 }
-                [datetime]$dateformatting = $item.date.Replace('.', '/') ; $time
+                [datetime]$dateformatting = $item.date.Replace('.', '/')
                 if (($Raiddays -like $dateformatting.dayofweek) -and ($Config.settings.reporting.raidtimeonly -eq $true) -and ($blacklist -notcontains $item.date)) { 
                     $item.date
                 }
@@ -152,7 +153,7 @@ function RaidFunction {
     
         $namearray = New-Object System.Collections.ArrayList($null)
         $sortJoins = $rjoinCSVimport | Where-Object {$_.date -eq $raidentry}
-        $sortLeaves = $rleaveCSVimport | Where-Object {$_.date -eq $raidentry}
+        $sortLeaves = $rleaveCSVimport | Where-Object{$_.date -eq $raidentry}
         $sortLoot = $rlootCSVimport | Where-Object {$_.date -eq $raidentry}
     
                 
