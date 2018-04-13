@@ -250,10 +250,7 @@ Function GenDB {
     $store = @{}
 
     #Generating database begins
-    
-    if ($config.settings.baseconfig.Freshrun -eq $true) { "Database generation being performed in FRESH mode"}
-    else { "Database generation being performed in APPEND mode."}
-    "This may take a few minutes"
+    "Generating database, This may take a few minutes"
     #Beginning loop through files
     $store = foreach ($DBFile in $DBFilesList) {
         $import = Get-Content $Dbfile
