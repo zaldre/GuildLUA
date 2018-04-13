@@ -8,7 +8,7 @@ PARAM(
     [int]$quantity
 )
 $ConfigFile = "H:\GuildLUA\coddddnfig_Lua.xml"
-
+if (($filename) -and (!$DB)) { throw "Error: Filename parameter is used to specify an individual LUA file to populate the database. Only use this flag in conjunction with -DB"}
 
 
 <#
@@ -20,6 +20,7 @@ Build attendance tracker. Calculate raid days based on times > Allow linkage bet
 Add help data
 Filter based on Time as well as date (partially implemented)
 Implement functionality for raids that span over night (Past midnight)
+Change blacklist to CSV for config, Have entries that have types i.e. Event,Loot,Player
 
 
 GUI STUFF
@@ -32,7 +33,7 @@ Configuration GUI    : Change LUA file to WoW folder selection box
                      : Help section - Explanation of Working Directory
                      : Even out spacing between the options - Misaligned
                      : add trigger for report raid times only - needs to grey out all unneeded boxes
-
+                     : Add autoregen db option to GUI          
 
 
 MAINGUI.PS1
@@ -94,7 +95,6 @@ $joinfile = $dbsub + 'join.csv'
 $leavefile = $dbsub + 'leave.csv'
 $lootfile = $dbsub + 'loot.csv'
 $files = $joinfile, $leavefile, $lootfile
-
 
 #Reloading config file in case it was not loaded properly above.
 [xml]$Config = Get-Content $ConfigFile
@@ -253,7 +253,7 @@ Function GenDB {
     
     if ($config.settings.baseconfig.Freshrun -eq $true) { "Database generation being performed in FRESH mode"}
     else { "Database generation being performed in APPEND mode."}
-
+    "This may take a few minutes"
     #Beginning loop through files
     $store = foreach ($DBFile in $DBFilesList) {
         $import = Get-Content $Dbfile
@@ -397,9 +397,6 @@ Function GenDB {
         }
 
     }
-    $joinexportfile = $DBSub + 'join.csv'
-    $leaveexportfile = $DBSub + 'leave.csv'
-    $lootexportfile = $DBSub + 'loot.csv'
     $joinArr = New-Object System.Collections.ArrayList($null)
     $leaveArr = New-Object System.Collections.ArrayList($null)
     $lootArr = New-Object System.Collections.ArrayList($null)
@@ -410,48 +407,12 @@ Function GenDB {
             loot {[void]$lootArr.Add($entry)}
         }
     }
-    #checking for existence of database files, fresh run mode is assumed if no CSV files in DB folder
-    $LS = Get-ChildItem ($dbsub + '\' + "*.csv") | Where-Object {$_.name -eq "join.csv" -or $_.name -eq "leave.csv" -or $_.name -eq "loot.csv"}
-    if (($config.settings.baseconfig.dbfreshrun -eq "True") -or (!$LS)) {
-        $lootarr | export-csv $lootexportfile -NoTypeInformation
-        $joinarr | export-csv $joinexportfile -NoTypeInformation
-        $leavearr | export-csv $leaveexportfile -NoTypeInformation
-        #Making sure we refresh the loot array after a database refresh
-    }
-    else {
-        $oldLootarr = import-csv $lootexportfile
-        $oldjoinarr = import-csv $joinexportfile
-        $oldleavearr = import-csv $leaveexportfile
-
-        $diffLoot = compare-object -ReferenceObject $oldLootArr -DifferenceObject $lootarr 
-        $diffjoin = compare-object -ReferenceObject $oldjoinArr -DifferenceObject $joinarr 
-        $diffLeave = compare-object -ReferenceObject $oldleaveArr -DifferenceObject $leavearr 
-
-        if ($diffLoot.InputObject) { 
-            $count = $diffloot.inputobject.count
-            "Found $count entries to be added to the loot database."
-            $diffloot.inputobject | ForEach-Object { [void]$lootarr.Add($_) ; $lootarr | export-csv $lootexportfile -NoTypeInformation }
-        } 
-        else { "No differences found in loot entries. Skipping this"}
-
-
-        if ($diffLeave.InputObject) { 
-            $count = $diffleave.inputobject.count
-            "Found $count entries to be added to the leave database."
-            $diffleave.inputobject | ForEach-Object { [void]$leavearr.Add($_) ; $leavearr | export-csv $leaveexportfile -NoTypeInformation }
-        } 
-        else { "No differences found in leave entries. Skipping this"}
-
-        if ($diffjoin.InputObject) { 
-            $count = $diffjoin.inputobject.count
-            "Found $count entries to be added to the join database."
-            $diffjoin.inputobject | ForEach-Object { [void]$joinarr.Add($_) ; $joinarr | export-csv $joinexportfile -NoTypeInformation }
-        } 
-        else { "No differences found in join entries. Skipping this"}
-    }
-    if ($lootarray) { genlootarray }
-    write-host "Database generation complete."
+    $lootarr | export-csv $lootfile -NoTypeInformation
+    $joinarr | export-csv $joinfile -NoTypeInformation
+    $leavearr | export-csv $leavefile -NoTypeInformation
+    "Database generation complete."
 }
+
 
 #END FUNCTION DECLARATION
 
@@ -493,17 +454,8 @@ if ($DB) {
     $count = '					["count"]'
     $ID = '					["id"]'
     $final = '			},'
-
-    #Freshrun - Make sure we operate with a clean database.
-    if ($config.settings.baseconfig.dbfreshrun -eq "True") { 
-        "Freshrun mode selected, Deleting old database files"
-        #This deletes information about ALL previous runs. Set $config.settings.baseconfig.dbfreshrun to $false if you do not want this to occur
-       foreach ($file in $files) {
-        if (test-path $file) { Remove-Item $file }
-       }
-    }
     $mode = $null
-    [int]$int = 0
+    $int = 0
 
 
     #Calling GenDB Function
@@ -542,7 +494,7 @@ Item1       Item3
 Item2       Item4
 #>
 if ($lastloot) {
-if (!$lootarray) { genlootarray ; $Lootarray = $lootarray | sort-object -Property date }
+    if (!$lootarray) { genlootarray ; $Lootarray = $lootarray | sort-object -Property date }
     if ($lastloot -like "*,*") { "Multiple characters found"; $looter = $lastloot.Split(",")}
     else {$Looter = $lastloot }
     foreach ($entry in $looter) { 

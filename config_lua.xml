@@ -5,7 +5,7 @@
     <wowfolder>C:\WoW</wowfolder>
     <logfile>LUA_CSV.log</logfile>
     <timezoneID>Central Europe Standard Time</timezoneID>
-	<freshrun>True</freshrun>
+	<freshrun>False</freshrun>
   </baseconfig>
   <reporting>
     <convservertime>True</convservertime>
