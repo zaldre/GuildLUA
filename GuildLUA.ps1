@@ -15,6 +15,7 @@ if (($filename) -and (!$DB)) { throw "Error: Filename parameter is used to speci
 KNOWN BUGS/NEEDS IMPLEMENTATION
 GUILDLUA.PS1
 
+Change config stuff to use $PsScriptroot instead of PWD
 Version number + update checker (NuGet)
 Build attendance tracker. Calculate raid days based on times > Allow linkage between 1 Main > Many alt
 Add help data
