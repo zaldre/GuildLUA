@@ -60,9 +60,9 @@ if ($PSVersionTable.psversion.major -le "4") {
 $currentDir = Get-Location | select-object -ExpandProperty path
 $localConf = $currentdir + '\' + 'config_lua.xml'
 $localStamp = $currentdir + '\' + 'stamp.txt'
-if (!(test-path $configfile -ErrorAction SilentlyContinue)) {
+if (!(test-path $configfile)) {
     try {
-        if (test-path -ErrorAction SilentlyContinue $localConf) { 
+        if (test-path $localConf) { 
             "Using configuration file $localconf"
             $ConfigFile = $localConf
             if (test-path $localStamp) { 
@@ -80,6 +80,9 @@ if (!(test-path $configfile -ErrorAction SilentlyContinue)) {
     catch { $error[0] } 
 }
 
+#Reloading config file in case there were changes above
+[xml]$Config = Get-Content $ConfigFile
+
 
 #Variable declaration
 #Pre-Requisite checks for existing data. Creates directories if they do not exist
@@ -96,10 +99,7 @@ $leavefile = $dbsub + 'leave.csv'
 $lootfile = $dbsub + 'loot.csv'
 $files = $joinfile, $leavefile, $lootfile
 
-#Reloading config file in case it was not loaded properly above.
-[xml]$Config = Get-Content $ConfigFile
-
-if (test-path ($Dbsub + 'blacklist.txt')) { $blacklist = get-content ($DBsub + 'blacklist.txt') }
+if (test-path ($Dbsub + 'blacklist.Txt')) { $blacklist = get-content ($DBsub + 'blacklist.txt') }
 #Function declaration
 
 #Generate an array full of the loot listings for quicker searching
