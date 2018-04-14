@@ -22,7 +22,7 @@ Add help data
 Filter based on Time as well as date (partially implemented)
 Implement functionality for raids that span over night (Past midnight)
 Change blacklist to CSV for config, Have entries that have types i.e. Event,Loot,Player
-
+Supplemental LUA files (Other officers can send data to you for collation)
 
 GUI STUFF
 CONFIGGUI.PS1
@@ -135,7 +135,7 @@ function RaidFunction {
                 if (($Raiddays -like $dateformatting.dayofweek) -and ($Config.settings.reporting.raidtimeonly -eq $true) -and ($blacklist -notcontains $item.date)) { 
                     $item.date
                 }
-                if (($Config.settings.reporting.raidtimeonly -ne $true) -and ($blacklist -notcontains $item.date)) {  $item.date }
+                elseif (($Config.settings.reporting.raidtimeonly -ne $true) -and ($blacklist -notcontains $item.date)) {  $item.date }
             }
         }
         $collection = $filelist | select-object -unique
