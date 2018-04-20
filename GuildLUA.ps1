@@ -16,7 +16,15 @@ KNOWN BUGS/NEEDS IMPLEMENTATION
 GUILDLUA.PS1
 
 Add date to raid report, add to master sheet in foreach loop using $store then only filter on date
-Move date time changes from local > server into reports instead of DB
+Move date time changes from local > server into reports instead of DB - Function created, Removed option from DB, Now needs to be moved onto -raid and -character functions
+Code snippet
+   if ($config.settings.reporting.convServerTime -eq $true) {
+                    $converteddate = Convert-DateTime $date
+                    $datestamp = get-date $ConvertedDate -format "yyyy.MM.dd"
+                    $Timestamp = get-date $ConvertedDate -Format "HH:mm:ss"
+                }
+
+
 Change config stuff to use $PsScriptroot instead of PWD
 Version number + update checker (NuGet)
 Build attendance tracker. Calculate raid days based on times > Allow linkage between 1 Main > Many alt
@@ -160,7 +168,7 @@ function RaidFunction {
     
         $namearray = New-Object System.Collections.ArrayList($null)
         $sortJoins = $rjoinCSVimport | Where-Object {$_.date -eq $raidentry}
-        $sortLeaves = $rleaveCSVimport | Where-Object{$_.date -eq $raidentry}
+        $sortLeaves = $rleaveCSVimport | Where-Object {$_.date -eq $raidentry}
         $sortLoot = $rlootCSVimport | Where-Object {$_.date -eq $raidentry}
     
                 
@@ -327,81 +335,72 @@ Function GenDB {
                 #The dates are stored in US format, So let's make sure thats taken into consideration before we start changing things.
                 #Convert parameter $date from US Format into local
                 $USFormat = get-date $Date -format ($US.DateTimeFormat.FullDateTimePattern)
-                
-                if ($config.settings.reporting.convServerTime -eq $true) {
-                    $converteddate = Convert-DateTime $date
-                    $datestamp = get-date $ConvertedDate -format "yyyy.MM.dd"
-                    $Timestamp = get-date $ConvertedDate -Format "HH:mm:ss"
-                }
-        
-                else {
-                    $datestamp = get-date $USFormat -format "yyyy.MM.dd"
-                    $Timestamp = get-date $USformat -Format "HH:mm:ss"
-                }
-        
+                $datestamp = get-date $USFormat -format "yyyy.MM.dd"
+                $Timestamp = get-date $USformat -Format "HH:mm:ss"
             }
-            #Conversion finished, Lets now store the date and time in individual variables for ease of access.
+        
+        }
+        #Conversion finished, Lets now store the date and time in individual variables for ease of access.
     
-            #Final block - Write the objects out
-            if ($CurrentItem -match [Regex]::Escape($final) -and ($currentitem.length -eq $final.length)) {
-                if ($mode -eq "leave") { 
-                    $obj = [pscustomobject][ordered]@{
-                        Name  = $currentplayer
-                        Leave = $timestamp
-                        Date  = $datestamp
-                        Mode  = $mode
-                    }
-                    #Passing object to the pipeline to store in $store
-                    $obj
-                    #Blanking to ensure that data is fresh each loop
-                    $obj = $null
-                    $currentplayer = $null
-                    $timestamp = $null
+        #Final block - Write the objects out
+        if ($CurrentItem -match [Regex]::Escape($final) -and ($currentitem.length -eq $final.length)) {
+            if ($mode -eq "leave") { 
+                $obj = [pscustomobject][ordered]@{
+                    Name  = $currentplayer
+                    Leave = $timestamp
+                    Date  = $datestamp
+                    Mode  = $mode
                 }
+                #Passing object to the pipeline to store in $store
+                $obj
+                #Blanking to ensure that data is fresh each loop
+                $obj = $null
+                $currentplayer = $null
+                $timestamp = $null
+            }
 
-                if ($mode -eq "join") {
-                    $obj = [pscustomobject][ordered]@{
-                        Name = $currentplayer
-                        Join = $timestamp
-                        Date = $datestamp
-                        Mode = $mode
-                    }
-                    #Passing object to the pipeline to store in $store
-                    $obj
-                    #Blanking to ensure that data is fresh each loop
-                    $obj = $null
-                    $currentplayer = $null
-                    $timestamp = $null
+            if ($mode -eq "join") {
+                $obj = [pscustomobject][ordered]@{
+                    Name = $currentplayer
+                    Join = $timestamp
+                    Date = $datestamp
+                    Mode = $mode
                 }
+                #Passing object to the pipeline to store in $store
+                $obj
+                #Blanking to ensure that data is fresh each loop
+                $obj = $null
+                $currentplayer = $null
+                $timestamp = $null
+            }
 
-                if ($mode -eq "loot") {
-                    $obj = [pscustomobject][ordered]@{
-                        Name     = $currentplayer
-                        Item     = $itemName.SubString(1)
-                        Color    = $colorvalue
-                        Quantity = $quantity
-                        Quality  = $coloringame
-                        Priority = $colorpriority
-                        URL      = $URL
-                        Date     = $datestamp 
-                        Mode     = $mode
-                        Loot     = $timestamp
-                    }
-                    #Passing object to the pipeline to store in $store
-                    $obj
-                    #Blanking to ensure that data is fresh each loop
-                    $obj = $null
-                    $currentplayer = $null
-                    $itemName = $null
-                    $colorvalue = $null
-                    $quantity = $null
-                    $coloringame = $null
-                    $colorpriority = $null
+            if ($mode -eq "loot") {
+                $obj = [pscustomobject][ordered]@{
+                    Name     = $currentplayer
+                    Item     = $itemName.SubString(1)
+                    Color    = $colorvalue
+                    Quantity = $quantity
+                    Quality  = $coloringame
+                    Priority = $colorpriority
+                    URL      = $URL
+                    Date     = $datestamp 
+                    Mode     = $mode
+                    Loot     = $timestamp
                 }
+                #Passing object to the pipeline to store in $store
+                $obj
+                #Blanking to ensure that data is fresh each loop
+                $obj = $null
+                $currentplayer = $null
+                $itemName = $null
+                $colorvalue = $null
+                $quantity = $null
+                $coloringame = $null
+                $colorpriority = $null
             }
         }
-
     }
+
     $joinArr = New-Object System.Collections.ArrayList($null)
     $leaveArr = New-Object System.Collections.ArrayList($null)
     $lootArr = New-Object System.Collections.ArrayList($null)
@@ -422,7 +421,7 @@ Function GenDB {
 function Convert-DateTime($date) {
     $ConvertedDate = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId($USFormat, [System.TimeZoneInfo]::Local.Id, $Config.settings.baseconfig.timezoneid)
     return $ConvertedDate
-    }
+}
 
 
 #END FUNCTION DECLARATION
@@ -433,11 +432,10 @@ function Convert-DateTime($date) {
 if ($db) {
     #Finding which files are to be used. If no -filename parameter, Search the WoW directory.
     if (!$filename) { 
-        "No filename specified. Searching WoW directory for suitable files"
+        "No filename specified. Searching WoW directory for CT_Raidtracker LUA files"
         $WTFAccount = "\WTF\ACCOUNT\"
         try { $DBFilesList = Get-Childitem ($config.settings.baseconfig.wowfolder + $WTFAccount + '\*\SavedVariables\CT_Raidtracker.lua') }
         catch { throw "Error: No files found. Check the wow folder location in the config and try again" ; exit }
-        "Scanning through LUA file(s) for CT_RaidTracker information, This may take a few minutes..."
         $count = $dbfileslist.count ; "Found $count files"
     }
     else {

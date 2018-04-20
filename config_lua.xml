@@ -7,7 +7,7 @@
     <timezoneID>Central Europe Standard Time</timezoneID>
   </baseconfig>
   <reporting>
-    <convservertime>True</convservertime>
+    <convservertime>False</convservertime>
     <reportfolder>reports</reportfolder>
     <qualityfilter>0</qualityfilter>
     <raiddays>Thursday,Sunday</raiddays>
