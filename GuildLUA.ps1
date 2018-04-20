@@ -15,6 +15,8 @@ if (($filename) -and (!$DB)) { throw "Error: Filename parameter is used to speci
 KNOWN BUGS/NEEDS IMPLEMENTATION
 GUILDLUA.PS1
 
+Add date to raid report, add to master sheet in foreach loop using $store then only filter on date
+Move date time changes from local > server into reports instead of DB
 Change config stuff to use $PsScriptroot instead of PWD
 Version number + update checker (NuGet)
 Build attendance tracker. Calculate raid days based on times > Allow linkage between 1 Main > Many alt
@@ -258,7 +260,6 @@ Function GenDB {
         $import = Get-Content $Dbfile
         foreach ($entry in $import) { 
             $obj = @()
-            $int++ #Counter
 
             #Determining which block we are processing. Leave, Loot or Join
             if ($entry -eq '		["Leave"] = {') { $mode = "leave"}
@@ -289,7 +290,6 @@ Function GenDB {
                 $url = $url.Replace(" ", "") 
                 $Url = $url.Split(':')
                 $url = $url[0] + ':' + $url[1]
-                #$url
             }
 
             #Quantity processing
@@ -312,7 +312,7 @@ Function GenDB {
 
             #Time processing
             if ($CurrentItem -match [Regex]::Escape($time)) {
-                if (!$mode) { write-log "Error. Mode unknown on line" $int ; break }
+                if (!$mode) { write-log "Error. Mode unknown on line" ; break }
 
                 #Gathering date and time information
                 $RawDate = $value -split "\s+"
@@ -409,7 +409,7 @@ Function GenDB {
     $lootarr | export-csv $lootfile -NoTypeInformation
     $joinarr | export-csv $joinfile -NoTypeInformation
     $leavearr | export-csv $leavefile -NoTypeInformation
-    "Database generation complete."
+    Write-Host "Database generation complete."
 }
 
 
@@ -442,8 +442,7 @@ if ($DB) {
         $fullpathfilename = (Get-Location).path + '\' + $filename
         if ((test-path $filename) -eq $false) { $Check1 = $false } else { $DBFilesList = Get-ChildItem $filename }
         if ((test-path $fullpathfilename) -eq $false) { $check2 = $false } else { $DBFilesList = Get-ChildItem $fullpathfilename }
-        if (($check1 -eq $false) -and ($check2 -eq $false)) {  write-host "ERROR: NO FILE FOUND BY THE NAME OF $filename" ; exit } 
-        #
+        if (($check1 -eq $false) -and ($check2 -eq $false)) {  "ERROR: NO FILE FOUND BY THE NAME OF $filename" ; exit } 
     }
     #Declaring object types
     $player = '				["player"]'
@@ -464,7 +463,6 @@ if ($DB) {
 
 if ($raid) {
     raidfunction
-
 }
 
 #Character search
