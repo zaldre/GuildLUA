@@ -8,7 +8,7 @@ PARAM(
     [int]$quantity
 )
 $ConfigFile = "H:\GuildLUA\coddddnfig_Lua.xml"
-if (($filename) -and (!$DB)) { throw "Error: Filename parameter is used to specify an individual LUA file to populate the database. Only use this flag in conjunction with -DB"}
+if (($filename) -and (!db)) { throw "Error: Filename parameter is used to specify an individual LUA file to populate the database. Only use this flag in conjunction with -DB"}
 
 
 <#
@@ -24,7 +24,7 @@ Add help data
 Filter based on Time as well as date (partially implemented)
 Implement functionality for raids that span over night (Past midnight)
 Change blacklist to CSV for config, Have entries that have types i.e. Event,Loot,Player
-Supplemental LUA files (Other officers can send data to you for collation)
+Supplemental LUA files (Other officers can send data to you for collation) - Needs duplicate object detection
 
 GUI STUFF
 CONFIGGUI.PS1
@@ -101,6 +101,10 @@ $joinfile = $dbsub + 'join.csv'
 $leavefile = $dbsub + 'leave.csv'
 $lootfile = $dbsub + 'loot.csv'
 $files = $joinfile, $leavefile, $lootfile
+
+#Date/Time in LUA file is always in US format, This variable makes sure we are always able to intepret these entries as datetime objects irrespective of region
+$US = New-Object system.globalization.cultureinfo("en-US")
+
 
 if (test-path ($Dbsub + 'blacklist.Txt')) { $blacklist = get-content ($DBsub + 'blacklist.txt') }
 #Function declaration
@@ -254,7 +258,7 @@ Function GenDB {
     $store = @{}
 
     #Generating database begins
-    "Generating database, This may take a few minutes"
+    write-host "Generating database, This may take a few minutes"
     #Beginning loop through files
     $store = foreach ($DBFile in $DBFilesList) {
         $import = Get-Content $Dbfile
@@ -321,9 +325,11 @@ Function GenDB {
                 [datetime]$date = $Rawdate[1] + " " + $rawdate[2]
 
                 #The dates are stored in US format, So let's make sure thats taken into consideration before we start changing things.
-                $USFormat = get-date $Date -format ($US.DateTimeFormat.FullDateTimePattern) 
+                #Convert parameter $date from US Format into local
+                $USFormat = get-date $Date -format ($US.DateTimeFormat.FullDateTimePattern)
+                
                 if ($config.settings.reporting.convServerTime -eq $true) {
-                    $ConvertedDate = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId($USFormat, [System.TimeZoneInfo]::Local.Id, $Config.settings.baseconfig.timezoneid)
+                    $converteddate = Convert-DateTime $date
                     $datestamp = get-date $ConvertedDate -format "yyyy.MM.dd"
                     $Timestamp = get-date $ConvertedDate -Format "HH:mm:ss"
                 }
@@ -413,23 +419,20 @@ Function GenDB {
 }
 
 
+function Convert-DateTime($date) {
+    $ConvertedDate = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId($USFormat, [System.TimeZoneInfo]::Local.Id, $Config.settings.baseconfig.timezoneid)
+    return $ConvertedDate
+    }
+
+
 #END FUNCTION DECLARATION
 
-#END CONFIGURABLE SECTION
 
+#Flags section
 
-
-$US = New-Object system.globalization.cultureinfo("en-US") #Times are saved in US format in the LUA file. This variable helps us convert that
-
-
-
-
-
-#START DATABASE GENERATION OF LUA TO CSV
-
-if ($DB) {
+if ($db) {
     #Finding which files are to be used. If no -filename parameter, Search the WoW directory.
-    if (!$Filename) { 
+    if (!$filename) { 
         "No filename specified. Searching WoW directory for suitable files"
         $WTFAccount = "\WTF\ACCOUNT\"
         try { $DBFilesList = Get-Childitem ($config.settings.baseconfig.wowfolder + $WTFAccount + '\*\SavedVariables\CT_Raidtracker.lua') }
@@ -459,21 +462,16 @@ if ($DB) {
     #Calling GenDB Function
     GenDB
 } 
-#END GENERATION OF DB FUNCTION
+
 
 if ($raid) {
     raidfunction
 }
 
-#Character search
-
 #Looking for -Character flag.
 if ($Character) {
     charactersearch -charname "$character"
 }
-
-
- 
 
 
 if ($itemsearch) {
