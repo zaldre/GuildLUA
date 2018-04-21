@@ -8,7 +8,7 @@ PARAM(
     [int]$quantity
 )
 $ConfigFile = "H:\GuildLUA\coddddnfig_Lua.xml"
-if (($filename) -and (!db)) { throw "Error: Filename parameter is used to specify an individual LUA file to populate the database. Only use this flag in conjunction with -DB"}
+if (($filename) -and (!db)) { throw "Error: Filename parameter is used to specify an individual LUA file to populate the database. Only use this flag in conjunction with -db"}
 
 
 <#
@@ -67,29 +67,37 @@ if ($PSVersionTable.psversion.major -le "4") {
 
 #Configuration file logic.
 #First, A static entry can be configured in the "ConfigFile" variable
-#If this cannot be located, We look in the current working directory for the file. If this can't be found, the script stops.
+#If this cannot be located, We look in the current working directory for the file.
+#If this can't be found, the script then looks in the script directory
+#Failing that, the script will stop.
+
 $currentDir = Get-Location | select-object -ExpandProperty path
-$localConf = $currentdir + '\' + 'config_lua.xml'
-$localStamp = $currentdir + '\' + 'stamp.txt'
+$scriptLoc = $PSScriptRoot
+function Scan-Config($conf) {
+    $configfile = $conf + '\' + 'config_lua.xml'
+    if (test-path $configfile) { 
+        "Using configuration file $configfile"
+        $script:ConfigFile = $configfile
+        [xml]$Config = Get-Content $ConfigFile
+        if ($Config.settings.baseconfig.workingdir -ne $currentdir) {
+            'Updating the settings to use the current directory as the new working directory'
+            $config.settings.baseconfig.workingdir = $currentDir.ToString()
+            $config.save($ConfigFile)
+        }
+    }
+}
+
 if (!(test-path $configfile)) {
     try {
-        if (test-path $localConf) { 
-            "Using configuration file $localconf"
-            $ConfigFile = $localConf
-            if (test-path $localStamp) { 
-                if ((get-content $localstamp) -eq '19685a9d1dc9ae0cc97c49c95419cb48b0993f14') {
-                    [xml]$Config = Get-Content $ConfigFile
-                    if ($Config.settings.baseconfig.workingdir -ne $currentdir) {
-                        'Updating the settings to use the current directory as the new working directory'
-                        $config.settings.baseconfig.workingdir = $currentDir.ToString()
-                        $config.save($ConfigFile)
-                    }
-                }
-            }
+        Scan-Config -conf $currentDir
+        if (!(test-path $configfile)) {
+        Scan-Config -conf $scriptLoc
         }
     }
     catch { $error[0] } 
 }
+
+
 
 #Reloading config file in case there were changes above
 [xml]$Config = Get-Content $ConfigFile
@@ -479,14 +487,6 @@ if ($itemsearch) {
     }
 }
 
-#Use name expressions to make multiple columns for output 
-
-<#IE
-Zaldre      Zombius
-Item1       Item3  
-Item2       Item4
-#>
-
 if ($lastloot) {
     if (!$lootarray) { genlootarray ; $Lootarray = $lootarray | sort-object -Property date }
     if ($lastloot -like "*,*") { $looter = $lastloot.Split(",")}
@@ -495,7 +495,7 @@ if ($lastloot) {
         if (!$quantity) { $quantity = 5 }
         $capture = $lootarray | Where-Object {$_.name -eq $entry} | Select-Object Item -Last $quantity
         $string = $null
-        foreach ($listing in $capture){
+        foreach ($listing in $capture) {
             if ($string -eq $null) { $string = $listing.item.ToSTring() }
             else { $string = $string + ', ' + $listing.item.ToSTring() }
         }
