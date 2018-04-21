@@ -23,9 +23,6 @@ Code snippet
                     $datestamp = get-date $ConvertedDate -format "yyyy.MM.dd"
                     $Timestamp = get-date $ConvertedDate -Format "HH:mm:ss"
                 }
-
-
-Change config stuff to use $PsScriptroot instead of PWD
 Version number + update checker (NuGet)
 Build attendance tracker. Calculate raid days based on times > Allow linkage between 1 Main > Many alt
 Add help data
