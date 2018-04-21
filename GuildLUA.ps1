@@ -486,11 +486,20 @@ Zaldre      Zombius
 Item1       Item3  
 Item2       Item4
 #>
+
 if ($lastloot) {
     if (!$lootarray) { genlootarray ; $Lootarray = $lootarray | sort-object -Property date }
-    if ($lastloot -like "*,*") { "Multiple characters found"; $looter = $lastloot.Split(",")}
-    else {$Looter = $lastloot }
+    if ($lastloot -like "*,*") { $looter = $lastloot.Split(",")}
+    else { $Looter = $lastloot }
     foreach ($entry in $looter) { 
-        $lootarray | Where-Object {$_.name -eq $entry} | Select-Object Item -Last 5
+        if (!$quantity) { $quantity = 5 }
+        $capture = $lootarray | Where-Object {$_.name -eq $entry} | Select-Object Item -Last $quantity
+        $string = $null
+        foreach ($listing in $capture){
+            if ($string -eq $null) { $string = $listing.item.ToSTring() }
+            else { $string = $string + ', ' + $listing.item.ToSTring() }
+        }
+        $string = $entry + ': ' + $string
+        $string 
     }
 }
