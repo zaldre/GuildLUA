@@ -184,17 +184,21 @@ function RaidFunction {
         $namearray = $namearray | Select-Object -Unique
        
         $store = foreach ($name in $namearray) { 
-            $lootlist = $null
-            $JoinTime = $sortjoins | Where-Object {$_.name -eq "$name"} | sort-object -Property join | select-Object join -first 1
-            $leavetime = $sortleaves | Where-Object {$_.name -eq "$name"} | sort-object -property leave | select-Object leave -last 1
+            #Finding the loot results for each person in the raid
             $lootCollection = $sortloot | Where-Object {$_.name -eq "$name"} | Where-Object {$_.priority -ge $Config.settings.reporting.qualityfilter}
             foreach ($loot in $lootcollection) {
                 if ($lootlist -eq $null) { $lootlist = $loot.item } else { $lootlist = $lootlist + ";" + $loot.item }
                 if ($URLlist -eq $null) { $URLlist = $loot.URL } else { $URLlist = $URLlist + ";" + $loot.URL }
             }
+
+            #Finding join and leave time - If not data present, NO DATA is filled in the spot
+            $JoinTime = $sortjoins | Where-Object {$_.name -eq "$name"} | sort-object -Property join | select-Object join -first 1
+            $leavetime = $sortleaves | Where-Object {$_.name -eq "$name"} | sort-object -property leave | select-Object leave -last 1
+           
             if (!$leavetime.leave) { $perPersonLeave = "NO DATA" } else { $perPersonLeave = $leavetime.leave }
             if (!$jointime.join) { $perPersonjoin = "NO DATA" }  Else { $perPersonJoin = $jointime.join }
-            $obj = [pscustomobject][ordered]@{
+            
+               $obj = [pscustomobject][ordered]@{
                 Name  = $name
                 Join  = $perPersonJoin
                 Leave = $perPersonLeave
@@ -271,12 +275,13 @@ Function GenDB {
     $store = @{}
 
     #Generating database begins
-    write-host "Generating database, This may take a few minutes"
+    "Generating database, This may take a few minutes"
     #Beginning loop through files
     $store = foreach ($DBFile in $DBFilesList) {
         $import = Get-Content $Dbfile
         foreach ($entry in $import) { 
             $obj = @()
+            $int++ #Counter
 
             #Determining which block we are processing. Leave, Loot or Join
             if ($entry -eq '		["Leave"] = {') { $mode = "leave"}
@@ -307,6 +312,7 @@ Function GenDB {
                 $url = $url.Replace(" ", "") 
                 $Url = $url.Split(':')
                 $url = $url[0] + ':' + $url[1]
+                #$url
             }
 
             #Quantity processing
@@ -329,7 +335,7 @@ Function GenDB {
 
             #Time processing
             if ($CurrentItem -match [Regex]::Escape($time)) {
-                if (!$mode) { write-log "Error. Mode unknown on line" ; break }
+                if (!$mode) { write-log "Error. Mode unknown on line" $int ; break }
 
                 #Gathering date and time information
                 $RawDate = $value -split "\s+"
@@ -338,74 +344,81 @@ Function GenDB {
                 [datetime]$date = $Rawdate[1] + " " + $rawdate[2]
 
                 #The dates are stored in US format, So let's make sure thats taken into consideration before we start changing things.
-                #Convert parameter $date from US Format into local
-                $USFormat = get-date $Date -format ($US.DateTimeFormat.FullDateTimePattern)
-                $datestamp = get-date $USFormat -format "yyyy.MM.dd"
-                $Timestamp = get-date $USformat -Format "HH:mm:ss"
-            }
+                $USFormat = get-date $Date -format ($US.DateTimeFormat.FullDateTimePattern) 
+                if ($config.settings.reporting.convServerTime -eq $true) {
+                    $ConvertedDate = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId($USFormat, [System.TimeZoneInfo]::Local.Id, $Config.settings.baseconfig.timezoneid)
+                    $datestamp = get-date $ConvertedDate -format "yyyy.MM.dd"
+                    $Timestamp = get-date $ConvertedDate -Format "HH:mm:ss"
+                }
         
-        }
-        #Conversion finished, Lets now store the date and time in individual variables for ease of access.
+                else {
+                    $datestamp = get-date $USFormat -format "yyyy.MM.dd"
+                    $Timestamp = get-date $USformat -Format "HH:mm:ss"
+                }
+        
+            }
+            #Conversion finished, Lets now store the date and time in individual variables for ease of access.
     
-        #Final block - Write the objects out
-        if ($CurrentItem -match [Regex]::Escape($final) -and ($currentitem.length -eq $final.length)) {
-            if ($mode -eq "leave") { 
-                $obj = [pscustomobject][ordered]@{
-                    Name  = $currentplayer
-                    Leave = $timestamp
-                    Date  = $datestamp
-                    Mode  = $mode
+            #Final block - Write the objects out
+            if ($CurrentItem -match [Regex]::Escape($final) -and ($currentitem.length -eq $final.length)) {
+                if ($mode -eq "leave") { 
+                    $obj = [pscustomobject][ordered]@{
+                        Name  = $currentplayer
+                        Leave = $timestamp
+                        Date  = $datestamp
+                        Mode  = $mode
+                    }
+                    #Passing object to the pipeline to store in $store
+                    $obj
+                    #Blanking to ensure that data is fresh each loop
+                    $obj = $null
+                    $currentplayer = $null
+                    $timestamp = $null
                 }
-                #Passing object to the pipeline to store in $store
-                $obj
-                #Blanking to ensure that data is fresh each loop
-                $obj = $null
-                $currentplayer = $null
-                $timestamp = $null
-            }
 
-            if ($mode -eq "join") {
-                $obj = [pscustomobject][ordered]@{
-                    Name = $currentplayer
-                    Join = $timestamp
-                    Date = $datestamp
-                    Mode = $mode
+                if ($mode -eq "join") {
+                    $obj = [pscustomobject][ordered]@{
+                        Name = $currentplayer
+                        Join = $timestamp
+                        Date = $datestamp
+                        Mode = $mode
+                    }
+                    #Passing object to the pipeline to store in $store
+                    $obj
+                    #Blanking to ensure that data is fresh each loop
+                    $obj = $null
+                    $currentplayer = $null
+                    $timestamp = $null
                 }
-                #Passing object to the pipeline to store in $store
-                $obj
-                #Blanking to ensure that data is fresh each loop
-                $obj = $null
-                $currentplayer = $null
-                $timestamp = $null
-            }
 
-            if ($mode -eq "loot") {
-                $obj = [pscustomobject][ordered]@{
-                    Name     = $currentplayer
-                    Item     = $itemName.SubString(1)
-                    Color    = $colorvalue
-                    Quantity = $quantity
-                    Quality  = $coloringame
-                    Priority = $colorpriority
-                    URL      = $URL
-                    Date     = $datestamp 
-                    Mode     = $mode
-                    Loot     = $timestamp
+                if ($mode -eq "loot") {
+                    $obj = [pscustomobject][ordered]@{
+                        Name     = $currentplayer
+                        Item     = $itemName.SubString(1)
+                        Color    = $colorvalue
+                        Quantity = $quantity
+                        Quality  = $coloringame
+                        Priority = $colorpriority
+                        URL      = $URL
+                        Date     = $datestamp 
+                        Mode     = $mode
+                        Loot     = $timestamp
+                    }
+                    #Passing object to the pipeline to store in $store
+                    $obj
+                    #Blanking to ensure that data is fresh each loop
+                    $obj = $null
+                    $currentplayer = $null
+                    $itemName = $null
+                    $colorvalue = $null
+                    $quantity = $null
+                    $coloringame = $null
+                    $colorpriority = $null
                 }
-                #Passing object to the pipeline to store in $store
-                $obj
-                #Blanking to ensure that data is fresh each loop
-                $obj = $null
-                $currentplayer = $null
-                $itemName = $null
-                $colorvalue = $null
-                $quantity = $null
-                $coloringame = $null
-                $colorpriority = $null
             }
         }
-    }
 
+    }
     $joinArr = New-Object System.Collections.ArrayList($null)
     $leaveArr = New-Object System.Collections.ArrayList($null)
     $lootArr = New-Object System.Collections.ArrayList($null)
@@ -419,20 +432,19 @@ Function GenDB {
     $lootarr | export-csv $lootfile -NoTypeInformation
     $joinarr | export-csv $joinfile -NoTypeInformation
     $leavearr | export-csv $leavefile -NoTypeInformation
-    Write-Host "Database generation complete."
+    "Database generation complete."
 }
 
-
 function Convert-DateTime($date) {
-    $ConvertedDate = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId($USFormat, [System.TimeZoneInfo]::Local.Id, $Config.settings.baseconfig.timezoneid)
-    return $ConvertedDate
+    $ConvertedDate = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId($date, [System.TimeZoneInfo]::Local.Id, $Config.settings.baseconfig.timezoneid)
+  return $ConvertedDate
 }
 
 
 #END FUNCTION DECLARATION
 
 
-#Flags section
+#FLAGS SECTION START
 
 if ($db) {
     #Finding which files are to be used. If no -filename parameter, Search the WoW directory.
@@ -471,7 +483,6 @@ if ($raid) {
     raidfunction
 }
 
-#Looking for -Character flag.
 if ($Character) {
     charactersearch -charname "$character"
 }
@@ -490,13 +501,16 @@ if ($lastloot) {
     else { $Looter = $lastloot }
     foreach ($entry in $looter) { 
         if (!$quantity) { $quantity = 5 }
-        $capture = $lootarray | Where-Object {$_.name -eq $entry} | Select-Object Item -Last $quantity
+        $capture = $lootarray | Where-Object {$_.name -eq $entry -and ($_.priority -ge $config.settings.reporting.qualityfilter)} | Select-Object Item -Last $quantity
         $string = $null
         foreach ($listing in $capture) {
             if ($string -eq $null) { $string = $listing.item.ToSTring() }
             else { $string = $string + ', ' + $listing.item.ToSTring() }
         }
+        if (!$string) { $string = "No results" }
         $string = $entry + ': ' + $string
         $string 
     }
 }
+
+#END FLAGS SECTION
