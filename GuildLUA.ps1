@@ -5,47 +5,13 @@ PARAM(
     [string]$lastloot,
     [string]$itemsearch,
     [string]$filename,
-    [int]$quantity
+    [int]$quantity,
+    [string]$attendance
 )
 $ConfigFile = "H:\GuildLUA\coddddnfig_Lua.xml"
 if (($filename) -and (!$db)) { throw "Error: Filename parameter is used to specify an individual LUA file to populate the database. Only use this flag in conjunction with -db"}
 
 
-<#
-KNOWN BUGS/NEEDS IMPLEMENTATION
-GUILDLUA.PS1
-
-Build attendance tracker. Calculate raid days based on times > Allow linkage between 1 Main > Many alt
-Change blacklist to CSV for config, Have entries that have types i.e. Event,Loot,Player
-Add date to raid report, add to master sheet in foreach loop using $store then only filter on date
-Version number + update checker (NuGet)
-Add help data
-Filter based on Time as well as date (partially implemented)
-Implement functionality for raids that span over night (Past midnight)
-
-
-GUI STUFF
-CONFIGGUI.PS1
-
-Configuration GUI    : Change LUA file to WoW folder selection box
-                     : Tickbox (Only report raid days and times)
-                     : TIME CONFIG : Enable tickbox for convert to server time
-                     : ID LOOKUP PREFIX
-                     : Help section - Explanation of Working Directory
-                     : Even out spacing between the options - Misaligned
-                     : add trigger for report raid times only - needs to grey out all unneeded boxes
-                     : Add autoregen db option to GUI          
-
-
-MAINGUI.PS1
-Reporting GUI        : Character search (Accompanying text indicating * option)
-                     : Raid Search (Accompanying text indicating * option)
-                     : Item Search (Accompanying text indicating * option)
-                     : Last Loot (Accompanying text indicating * option)
-                     : Generate DB (Single filename selection option)
-                     : Help
-                     : Introduction
-#>
 $ErrorActionPreference = "stop"
 
 #Making sure an appropriate version of powershell is installed
@@ -76,7 +42,7 @@ function Scan-Config {
             $config.settings.baseconfig.workingdir = $conf.ToString()
             $config.save($ConfigFile)
         }
-    return $tempConf
+        return $tempConf
     }
 }
 
@@ -151,7 +117,7 @@ if ($lastloot) {
 }
 
 if ($attendance) {
-
+    AttendanceReport -name $attendance
 }
 
 #END FLAGS SECTION

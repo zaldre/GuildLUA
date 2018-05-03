@@ -25,9 +25,12 @@ $files = $joinfile, $leavefile, $lootfile
 $US = New-Object system.globalization.cultureinfo("en-US")
 
 #Checking if we have a blacklist file, If so it is imported.
-if (test-path ($Dbsub + 'blacklist.Txt')) { $blacklist = get-content ($DBsub + 'blacklist.txt') }
+if (test-path ($Dbsub + 'blacklist.csv')) { $blacklist = import-csv ($DBsub + 'blacklist.csv') }
 
-
+#Getting the different types of blacklist entries
+$BLEvent = $blacklist | Where-Object {$_.type -eq "event"} | Select-Object -ExpandProperty Name
+$BLLoot = $blacklist | Where-Object {$_.type -eq "loot"} | Select-Object -ExpandProperty Name
+$BLPlayer = $blacklist | Where-Object {$_.type -eq "player"} | Select-Object -ExpandProperty Name
 
 
 #Functions
@@ -64,10 +67,10 @@ function RaidFunction {
                     loot { $time = $item.loot }
                 }
                 [datetime]$dateformatting = $item.date.Replace('.', '/')
-                if (($Raiddays -like $dateformatting.dayofweek) -and ($Config.settings.reporting.raidtimeonly -eq $true) -and ($blacklist -notcontains $item.date)) { 
+                if (($Raiddays -like $dateformatting.dayofweek) -and ($Config.settings.reporting.raidtimeonly -eq $true) -and ($BLEvent -notcontains $item.date)) { 
                     $item.date
                 }
-                elseif (($Config.settings.reporting.raidtimeonly -ne $true) -and ($blacklist -notcontains $item.date)) {  $item.date }
+                elseif (($Config.settings.reporting.raidtimeonly -ne $true) -and ($BLEvent -notcontains $item.date)) {  $item.date }
             }
         }
         $collection = $filelist | select-object -unique
@@ -354,7 +357,7 @@ function characterSearch($charname) {
     if ($charname -eq '*') {
         "Generating character reports for all users in the database. This may take some time."
         $chararray = New-Object System.Collections.ArrayList($null)
-        $lootarray = $LootArray | Where-Object {$blacklist -notcontains $_.date} | sort-object -Property Name
+        $lootarray = $LootArray | Where-Object {$BLEvent -notcontains $_.date} | sort-object -Property Name
         foreach ($entry in $lootarray) {
             if (($entry.name -ne $lastname) -and ($lastname -ne $null)) {
                 $CharacterReport = $CharacterReportFolder + $lastname + "_loot.csv"
@@ -371,7 +374,7 @@ function characterSearch($charname) {
     #Single character search
     if (($charname -notlike "*,*") -and ($charname -ne '*')) {
         $CharacterReport = $CharacterReportFolder + $charname + "_loot.csv"
-        $filteredLootArray = $LootArray | Where-Object {$_.name -eq $Charname -and $blacklist -notcontains $_.date}
+        $filteredLootArray = $LootArray | Where-Object {$_.name -eq $Charname -and $BLEvent -notcontains $_.date}
         $characterStore = foreach ($loot in $filteredLootArray) {
             if ($loot.priority -ge $Config.settings.reporting.qualityfilter) { $loot }
         }
@@ -379,6 +382,29 @@ function characterSearch($charname) {
     }
 }
 
+function AttendanceReport($name) {
+    $joins = import-csv ($DbSub + '\' + 'join.csv')
+    $leaves = import-csv ($DbSub + '\' + 'join.csv')
+
+    #Processing all people. Lets get their names and then filter.
+    if ($attendance -eq '*') {
+        $namearray = New-Object System.Collections.ArrayList($null)
+        $joinNames = $joins | Select-Object -expandproperty Name -Unique
+        $leaveNames = $leaves | Select-Object -expandproperty Name -Unique
+        $joinNames | Foreach-Object { [void]$namearray.Add($_) }
+        $leaveNames | Foreach-Object { [void]$namearray.Add($_) }
+
+        #OK. We have all their names in a unique sorted list now. Per Person processing can begin.
+        foreach ($name in $namearray) {
+            AttendanceReport -name $name
+        }
+    }
+    else {
+        $reportName = ($RPSub + 'character\' + $name + '_attendance.csv')
+        $reportName
+    }
+
+}
 
 
 
