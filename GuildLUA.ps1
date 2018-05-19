@@ -11,8 +11,6 @@ PARAM(
 $ErrorActionPreference = "stop"
 
 $ConfigFile = "H:\GuildLUA\coddddnfig_Lua.xml"
-if (($filename) -and (!$db)) { throw "Error: Filename parameter is used to specify an individual LUA file to populate the database. Only use this flag in conjunction with -db"}
-
 
 
 #Making sure an appropriate version of powershell is installed
@@ -102,6 +100,8 @@ else {
 }
 
 #FLAGS SECTION START
+
+if (($filename) -and (!$db)) { throw "Error: Filename parameter is used to specify an individual LUA file to populate the database. Only use this flag in conjunction with -db"}
 
 if ($db) {
     #Calling GenDB Function
