@@ -1,0 +1,7 @@
+  <#Conversion to server time occurs here if the option is enabled.
+            if ($config.settings.reporting.convservertime -eq $true) {
+                $passDate = $raidentry + " " + $perPersonJoin
+                Convert-DateTime $passdate
+                write-host $passdate
+            }
+            #>
