@@ -50,7 +50,7 @@ function Scan-Config {
         if ($Config.settings.baseconfig.workingdir -ne $conf) {
             write-host 'Updating the settings to use the current directory as the new working directory'
             $config.settings.baseconfig.workingdir = $conf.ToString()
-            $config.save($ConfigFile)
+            $config.save($tempconf)
         }
         return $tempConf
     }
@@ -84,7 +84,7 @@ catch {
 
 
 #Ensuring we have a compatible version of NuGet on this system. Should be in the 'supplemental' folder.
-if (!(Test-Path $config.settings.baseconfig.workingdir + '\supplemental\nuget.exe')) {
+if (!(Test-Path ($config.settings.baseconfig.workingdir + '\supplemental\nuget.exe'))) {
     try {
     Invoke-WebRequest -Method Get -uri 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile ($config.settings.baseconfig.workingdir + '\supplemental\nuget.exe')
 }
@@ -93,12 +93,13 @@ catch { throw "Unable to download version of NuGet required for this script. Ple
 
 #Update check
 $updateFile = $Config.settings.baseconfig.workingdir + '\db\update.csv'
-$updateFile = 'update.csv'
-$daysBetween = New-Timespan -end (Get-Date) -start (get-date (Import-Csv $updateFile | Select-Object -ExpandProperty Date))
-if ((!(test-path $updatefile)) -or ($daysBetween).days -ge 7) {
-    "Running an update check"
+if (!(test-path $updatefile)) {
+    Update-GuildLUA 
 }
-
+else {
+$daysBetween = New-Timespan -end (Get-Date) -start (get-date (Import-Csv $updateFile | Select-Object -ExpandProperty Date))
+if ($daysBetween.days -ge 7) { Update-GuildLUA }
+}
 
 #FLAGS SECTION START
 

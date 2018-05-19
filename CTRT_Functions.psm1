@@ -1,4 +1,3 @@
-
 #Pre-Requisite checks for existing data. Creates directories if they do not exist
 $DBSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.baseconfig.databasefolder + '\'
 $RPSub = $Config.settings.baseconfig.workingdir + '\' + $Config.settings.reporting.reportfolder + '\'
@@ -406,6 +405,12 @@ function AttendanceReport($name) {
 
 }
 
+#Updater
 
+function Update-GuildLUA {
+    "Checking for update for GuildLUA script"
+    #Do stuff
 
+}
+ 
 #END FUNCTION DECLARATION
