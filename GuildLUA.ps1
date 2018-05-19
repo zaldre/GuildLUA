@@ -23,12 +23,12 @@ if ($PSVersionTable.psversion.major -le "4") {
 }
 
 #Ensuring we have NuGet installed so we can update the script
-if (((Get-PackageProvider) | Where-Object {$_.name -eq "NuGet"}) -eq $null)  {
+if (((Get-PackageProvider) | Where-Object {$_.name -eq "NuGet"}) -eq $null) {
     "Warning: NuGet is not currently installed. This is required to keep the script up to date, Attempting installation now. Please accept all prompts."
-   try { 
-       Install-PackageProvider -Name NuGet
+    try { 
+        Install-PackageProvider -Name NuGet
     } 
-catch { throw $error[0] }
+    catch { throw $error[0] }
 }
 
 #Configuration file logic.
@@ -86,9 +86,9 @@ catch {
 #Ensuring we have a compatible version of NuGet on this system. Should be in the 'supplemental' folder.
 if (!(Test-Path ($config.settings.baseconfig.workingdir + '\supplemental\nuget.exe'))) {
     try {
-    Invoke-WebRequest -Method Get -uri 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile ($config.settings.baseconfig.workingdir + '\supplemental\nuget.exe')
-}
-catch { throw "Unable to download version of NuGet required for this script. Please go to https://www.nuget.org/downloads and place the .exe file in the supplemental folder where the script is installed."}
+        Invoke-WebRequest -Method Get -uri 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile ($config.settings.baseconfig.workingdir + '\supplemental\nuget.exe')
+    }
+    catch { throw "Unable to download version of NuGet required for this script. Please go to https://www.nuget.org/downloads and place the .exe file in the supplemental folder where the script is installed."}
 }
 
 #Update check
@@ -97,8 +97,8 @@ if (!(test-path $updatefile)) {
     Update-GuildLUA 
 }
 else {
-$daysBetween = New-Timespan -end (Get-Date) -start (get-date (Import-Csv $updateFile | Select-Object -ExpandProperty Date))
-if ($daysBetween.days -ge 7) { Update-GuildLUA }
+    $daysBetween = New-Timespan -end (Get-Date) -start (get-date (Import-Csv $updateFile | Select-Object -ExpandProperty Date))
+    if ($daysBetween.days -ge 7) { Update-GuildLUA }
 }
 
 #FLAGS SECTION START
